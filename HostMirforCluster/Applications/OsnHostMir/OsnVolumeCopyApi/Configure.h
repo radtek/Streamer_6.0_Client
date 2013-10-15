@@ -1,0 +1,368 @@
+#ifndef _CONFIG_H
+#define _CONFIG_H
+
+
+#define BLOCK_SIZE        512
+#define BIT_PER_BYTE      8
+#define OSN_VOLUME_COPY                     0x01
+#define MAX_INIT_IOS      8
+//#define INITIALIZE_SIZE   512
+
+// define the registry path
+# define OSN_VSS_BITSIZE_SUBKEY    L"OsnVSS\\Parameters"
+# define OSN_VSS_STATE_SUBKEY      L"OsnVSS\\Parameters\\State"
+# define OSN_VSS_MIRRORS_SUBKEY    L"OsnVSS\\Parameters\\Mirrors"
+# define OSN_VSS_CLUSTERMIRRORS_SUBKEY    L"OsnVSS\\Parameters\\ClusterMirrors"
+# define OSN_VSS_INIT_PROCESS      L"OsnVSS\\Parameters\\Process"
+# define OSN_VSS_QUEUE_IO_SUBKEY L"OsnVSS\\Parameters\\QueueIOs"
+# define OSN_VSS_SYSEM_BOOT_SUBKEY  L"OsnVSS\\Parameters\\Reboot"
+# define OSN_VSS_CLUSTERMIRRORS_LOCALSTATE L"OsnVSS\\Parameters\\ClusterLocalState"
+# define OSN_VSS_CLUSTERMIRRORS_REMOTESTATE L"OsnVSS\\Parameters\\ClusterRemoteState"
+
+# define OSN_DSS_BITSIZE_SUBKEY    L"OsnDSS\\Parameters"
+# define OSN_DSS_STATE_SUBKEY      L"OsnDSS\\Parameters\\State"
+# define OSN_DSS_MIRRORS_SUBKEY    L"OsnDSS\\Parameters\\Mirrors"
+# define OSN_DSS_CLUSTERMIRRORS_SUBKEY    L"OsnDSS\\Parameters\\ClusterMirrors"
+# define OSN_DSS_INIT_PROCESS      L"OsnDSS\\Parameters\\Process"
+# define OSN_DSS_QUEUE_IO_SUBKEY L"OsnDSS\\Parameters\\QueueIOs"
+# define OSN_DSS_SYSEM_BOOT_SUBKEY L"OsnDSS\\Parameters\\Reboot"
+# define OSN_DSS_CLUSTERMIRRORS_LOCALSTATE L"OsnDss\\Parameters\\ClusterLocalState"
+# define OSN_DSS_CLUSTERMIRRORS_REMOTESTATE L"OsnDss\\Parameters\\ClusterRemoteState"
+
+# define MAX_DEVICE_NAME_LENGTH    128
+# define OSN_MAX_MARKER 16
+
+typedef struct _REDO_INIT_SUBSEGMENT
+{
+	ULONGLONG  m_StartOffset;
+	ULONG  m_Length;
+
+	bool       m_Valid;
+	bool       m_Finished;
+}REDO_INIT_SUBSEGMENT,*PREDO_INIT_SUBSEGMENT;
+
+typedef struct _INIT_RECORD
+{
+	ULONG m_InitBlockIndex;
+	bool     m_InitReadComplete[MAX_INIT_IOS];
+	ULONG m_InitFinishedIndex;
+}INIT_RECORD,*PINIT_RECORD;
+
+typedef union _VOLUMEID
+{
+	struct
+	{
+		ULONGLONG	m_BlockOffset;	
+		ULONG			m_DiskSignature;	
+		ULONG			m_NotUsed1;
+		//ULONG			m_NotUsed2;
+	} MBP_VolumeID;
+
+	struct
+	{
+		GUID			m_VolumeGuid;		//4 bytes
+	} SAN_VolumeID;
+} VOLUMEID, *PVOLUMEID;
+
+typedef struct _VOLUME_MARKER
+{
+	VOLUMEID	m_VolumeID;
+	UCHAR		m_Marker[OSN_MAX_MARKER];
+	ULONG		m_MarkerBit; // 1 source,2 target,4 both
+} VOLUME_MARKER, *PVOLUME_MARKER;
+
+typedef struct _ASYN_MARKER
+{
+	VOLUMEID	m_VolumeID;
+	UCHAR		m_Marker[OSN_MAX_MARKER];
+} ASYN_MARKER, *PASYN_MARKER;
+
+typedef enum MIRROR_ROLE
+{
+	NO_MIRROR,
+	MIRROR_SOURCE,
+	MIRROR_TARGET
+
+};
+
+typedef struct OSN_PARTITION_PROT_INFO
+{
+	LARGE_INTEGER StartingOffset;
+	LARGE_INTEGER PartitionLength;
+
+}OSN_PARTITION_PROT_INFO,*POSN_PARTITION_PROT_INFO;
+
+typedef struct GPT_HEADER
+{
+	ULONGLONG m_Sig;
+	ULONG		  m_Version;
+	ULONG		  m_HeaderSize;
+	ULONG		  m_HeaderCrc32;
+	ULONG		  m_Reserved; // must be 0
+	ULONGLONG m_HeadOffset;
+	ULONGLONG m_BackupHeaderOffset;
+	ULONGLONG m_PartitionOffset;
+	ULONGLONG m_BackupPartitionOffset;
+	GUID			   m_DiskGuid;
+	ULONGLONG  m_PartitionEntryOffset; // 2 BLOCK
+	ULONG			m_NumberOfEntry;
+	ULONG			m_SizeOfEntry; //128 bytes
+	ULONG			m_PartitionCrc32;
+
+}GPT_HEADER,*PGPT_HEADER;
+
+typedef struct _DISK_INFO
+{
+	VOLUMEID m_DiskID;
+	ULONGLONG m_DiskSize;
+	ULONG m_DiskIndex;
+}DISK_INFO,*PDISK_INFO;
+
+typedef struct _DISK_INFOEX
+{
+	char           *m_DiskOEM;      //磁盘厂商
+    ULONG          m_DiskFormat;    //磁盘格式
+	ULONG          m_DiskStyle;     //磁盘类型
+}DISK_INFOEX,*PDISK_INFOEX;
+
+
+typedef struct _DISK_INFO_LIST
+{
+	ULONG m_Size;
+	DISK_INFO m_DiskInfo[1];
+}DISK_INFO_LIST,*PDISK_INFO_LIST;
+
+
+typedef struct  _MIRROR_INFO
+{
+	VOLUMEID m_SourceVolume;
+	VOLUMEID m_TargetVolume;
+
+}MIRROR_INFO,*PMIRROR_INFO;
+
+
+typedef struct _MIRROR_INFO_LIST
+{
+	ULONG m_Size;
+	MIRROR_INFO m_MirrorInfo[1];
+
+}MIRROR_INFO_LIST,*PMIRROR_INFO_LIST;
+
+
+/***********************************************************
+*        
+*           |-<------------------------------|   |<--------------------------------
+*           |------------------------------->|   |  									    |		
+*         Init ----------->Dirty---------->UP---------->Down--------->Recovery
+*          |--<--------------|                                        |<---------------|          
+*                                |<---------------------------------|                    |
+*                                |<---------------------------------------------------|
+*
+****************************************************************/
+
+typedef enum MIRROR_STATE_ENUM
+{
+	NONE, // never used
+	DOWN,
+	DIRTY,
+	RECOVERY,
+	UP,
+	INIT,
+	MISSING // kernal not used
+};
+
+typedef enum INIT_TYPE
+{
+	BASIC_INIT,
+	NTFS_INIT
+};
+
+typedef struct _CLUSTER_MIRROR_STATE
+{
+	VOLUMEID m_SourceVolume;
+	VOLUMEID m_TargetVolume;
+	MIRROR_STATE_ENUM m_RemoteState;
+	MIRROR_STATE_ENUM m_LocalState;
+	bool		changed;
+}CLUSTER_MIRROR_STATE,*PCLUSTER_MIRROR_STATE;
+
+typedef struct _QUERY_MIRROR_STATE
+{
+	MIRROR_STATE_ENUM m_State;
+	MIRROR_STATE_ENUM m_RemoteState;
+	bool							m_HealthyBoot;
+}QUERY_MIRROR_STATE,*PQUERY_MIRROR_STATE;
+
+typedef enum RECOVERY_VALUE
+{
+	DO_RECOVERY,
+	INITIALIZATION,
+	RECOVERY_DISABLE,
+	ABORT
+
+};
+
+typedef struct _CALLBACKCONTEXT
+{
+	PVOID		m_pDiskDevice;
+	LONG		m_IrpCount;
+	LONG        m_IrpSuccessFinished;
+	//VOLUMEID	m_VolumeID;
+	BOOLEAN	m_Flag;
+} CALLBACKCONTEXT, *PCALLBACKCONTEXT;
+
+# pragma pack(push ,mode_params,1)
+typedef struct _MODE_SELECT10 {
+        UCHAR OperationCode;    // 0x55 - SCSIOP_MODE_SELECT10
+        UCHAR SPBit : 1;
+        UCHAR Reserved1 : 3;
+        UCHAR PFBit : 1;
+        UCHAR LogicalUnitNumber : 3;
+        UCHAR Reserved2[5];
+        UCHAR ParameterListLength[2];
+        UCHAR Control;
+    } MODE_SELECT10;
+
+
+typedef struct	_MODE_HEADER10
+{
+    UCHAR ModeDataLength[2];
+    UCHAR MediumType;
+	UCHAR DeviceSpecificParameter;
+    UCHAR Reserved[2];
+    UCHAR BlockDescriptorLength[2];
+}MODE_HEADER10, *PMODE_HEADER10;
+
+
+typedef struct _OSN_MARKER_PAGE
+{
+	MODE_HEADER10		Header;
+	UCHAR						PageCode : 6;
+	UCHAR						Reserved : 1;
+	UCHAR						PageSavable : 1;
+	UCHAR						PageLength[2];
+	UCHAR						Alignment[1];            
+} OSN_MARKER_PAGE, *POSN_MARK_PAGE;
+#pragma pack(pop,mode_params)
+
+
+#define OSN_MAKE_IOCTL(t,c)\
+        (ULONG)CTL_CODE((t), 0x800+(c), METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+
+#define OSNDSS_DEVICE_TYPE					0x8400
+#define OSNVSS_DEVICE_TYPE					0x8800
+
+#define IOCTL_OSNVSS_SET_MIRROR_EX			OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,9)
+#define IOCTL_OSNVSS_SET_MIRROR             OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,10)
+#define IOCTL_OSNVSS_REMOVE_MIRROR          OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,11)
+#define IOCTL_OSNVSS_INITIALIZE				OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,12)
+#define IOCTL_OSNVSS_STOP_INITIALIZE		OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,13)
+#define IOCTL_OSNVSS_GET_DEVICESTATE		OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,14)
+#define IOCTL_OSNVSS_GET_PERCENTAGE		    OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,15)
+#define IOCTL_OSNVSS_GET_DISKSIZE		    OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,16)
+#define IOCTL_OSNVSS_START		            OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,17)
+#define IOCTL_OSNVSS_STOP		            OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,18)
+#define IOCTL_OSNVSS_GET_DEVICE_NUMBER		OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,19)
+#define IOCTL_OSNVSS_GET_DEVICE_NAME		OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,20)
+#define IOCTL_OSNVSS_GET_MIRROR_LIST        OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,21)
+#define IOCTL_OSNVSS_GET_MIRROR_INFO        OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,22)
+#define IOCTL_OSNVSS_SET_FLAG               OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,23)  
+#define IOCTL_OSNVSS_CHECK_INIT             OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,24)
+#define IOCTL_OSNVSS_SET_INIT_FLAG         OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,25)
+#define IOCTL_OSNVSS_MARKER					OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,26)
+#define IOCTL_OSNVSS_CREATE_NOTIFICATION_EVENT OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,27)
+#define IOCTL_OSNVSS_SIGNALED_EVENT	OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,28)
+#define IOCTL_OSNVSS_GET_MIRROR_NOTIFICATION_LIST  OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,29)
+#define IOCTL_OSNVSS_REMOVE_MIRROR_NOTIFICATION  OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,30)
+#define IOCTL_OSNVSS_SET_MIRROR_NOTIFICATION OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,31)
+#define IOCTL_OSNVSS_SET_REMOTE_MIRRORSTATE OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,32)
+#define IOCTL_OSNVSS_CREATE_RESCAN_EVENT	OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,33)
+#define	IOCTL_OSNVSS_QUERY_REMOTE_STATE		OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,34)
+#define IOCTL_OSNVSS_INITIALIZE_EX          OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,35)
+#define IOCTL_OSNVSS_ASYNORSYN				OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,36)
+#define IOCTL_OSNDSS_ASYNORSYN				OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,37)
+
+#define IOCTL_OSNDSS_SET_MIRROR_EX		 OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,9)
+#define IOCTL_OSNDSS_SET_MIRROR             OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,10)
+#define IOCTL_OSNDSS_REMOVE_MIRROR          OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,11)
+#define IOCTL_OSNDSS_INITIALIZE				OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,12)
+#define IOCTL_OSNDSS_STOP_INITIALIZE		OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,13)
+#define IOCTL_OSNDSS_GET_DEVICESTATE		OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,14)
+#define IOCTL_OSNDSS_GET_PERCENTAGE		    OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,15)
+#define IOCTL_OSNDSS_GET_DISKSIZE		    OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,16)
+#define IOCTL_OSNDSS_START		            OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,17)
+#define IOCTL_OSNDSS_STOP		            OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,18)
+#define IOCTL_OSNDSS_GET_DEVICE_NUMBER		OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,19)
+#define IOCTL_OSNDSS_GET_DEVICE_NAME		OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,20)
+#define IOCTL_OSNDSS_GET_MIRROR_LIST        OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,21)
+#define IOCTL_OSNDSS_GET_MIRROR_INFO        OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,22)
+#define IOCTL_OSNDSS_SET_FLAG               OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,23)
+#define IOCTL_OSNDSS_GET_DISKS              OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,24)
+#define IOCTL_OSNDSS_PROTECT_PARTITION      OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,25)
+#define IOCTL_OSNDSS_UNPROTECT_PARTITION    OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,26)
+#define IOCTL_OSNDSS_GET_DISK               OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,27)
+#define IOCTL_OSNDSS_GET_DISK_COUNT         OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,28)
+#define IOCTL_OSNDSS_CHECK_INIT             OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,29)
+#define IOCTL_OSNDSS_SET_INIT_FLAG         OSN_MAKE_IOCTL(OSNVSS_DEVICE_TYPE,30)
+#define IOCTL_OSNDSS_MARKER					OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,31)
+#define IOCTL_OSNDSS_CREATE_NOTIFICATION_EVENT  OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,32)
+#define IOCTL_OSNDSS_SIGNALED_EVENT	OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,33)
+#define IOCTL_OSNDSS_GET_MIRROR_NOTIFICATION_LIST  OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,34)
+#define IOCTL_OSNDSS_REMOVE_MIRROR_NOTIFICATION  OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,35)
+#define IOCTL_OSNDSS_SET_MIRROR_NOTIFICATION OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,36)
+#define IOCTL_OSNDSS_SET_REMOTE_MIRRORSTATE  OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,37)
+#define IOCTL_OSNDSS_CREATE_RESCAN_EVENT	OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,38)
+#define IOCTL_OSNDSS_QUERY_REMOTE_STATE		OSN_MAKE_IOCTL(OSNDSS_DEVICE_TYPE,39)
+
+#define FSCTL_GET_VOLUME_BITMAP         CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 27,  METHOD_NEITHER, FILE_ANY_ACCESS) // STARTING_LCN_INPUT_BUFFER, VOLUME_BITMAP_BUFFER
+
+
+
+//集群通信代码
+#define NOTIFICATION_LOCAL_DOWN    1
+#define NOTIFICATION_LOCAL_DIRTY     2
+#define NOTIFICATION_LOCAL_RECOVER 4
+#define NOTIFICATION_LOCAL_UP          8
+#define NOTIFICATION_LOCAL_INIT       16
+
+#define NOTIFICATION_REMOTE_DOWN     32
+#define NOTIFICATION_REMOTE_DIRTY      64
+#define NOTIFICATION_REMOTE_RECOVER  128
+#define NOTIFICATION_REMOTE_UP           256
+#define NOTIFICATION_REMOTE_INIT         512
+
+#define NOTIFICATION_BIT (1+2+4+8+16+32+64+128+256+512)
+//HBService 从驱动获取NOTIFCATION List
+typedef struct _MIRROR_NOTIFICATION_INFO
+{
+	VOLUMEID m_SrcId;
+	ULONG		m_NotificationBit;
+	bool			m_DssNotification;
+}MIRROR_NOTIFICATION_INFO,*PMIRROR_NOTIFICATION_INFO;
+
+typedef struct _MIRROR_NOTIFICATION_LIST
+{
+	ULONG m_Count;
+	MIRROR_NOTIFICATION_INFO m_Info[1];
+
+}MIRROR_NOTIFICATION_LIST,*PMIRROR_NOTIFICATION_LIST;
+
+
+// HBService 之间通信以及HBService与驱动之间通信数据结构
+typedef struct _NOTIFICATION_OBJECT
+{
+	VOLUMEID m_SrcId;
+	ULONG      m_NotificationBit;
+	ULONG		m_HBServiceCheck;
+	ULONG		m_NotSuccess;
+	bool			m_DssNotification;
+}NOTIFICATION_OBJECT,*PNOTIFICATION_OBJECT;
+
+typedef struct _NOTIFICATION_OBJECT_LIST
+{
+	ULONG m_Count;
+	NOTIFICATION_OBJECT m_Object[1];
+
+}NOTIFICATION_OBJECT_LIST,*PNOTIFICATION_OBJECT_LIST;
+# endif

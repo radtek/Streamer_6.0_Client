@@ -1,0 +1,20 @@
+//
+// Copyright (c) Microsoft Corporation.  All rights reserved.
+//
+
+#include <windows.h>
+
+//
+// Version resources
+//
+
+#include "..\..\common\osnversion.h"
+
+#define VER_FILETYPE    VFT_APP
+#define VER_FILESUBTYPE VFT2_UNKNOWN
+#define VER_FILEDESCRIPTION_STR     "Osn Service"
+#define VER_INTERNALNAME_STR        "OsnHBService.exe"
+#define VER_ORIGINALFILENAME_STR    "OsnHBService.exe"
+
+#include "..\..\common\osncommon.ver"
+

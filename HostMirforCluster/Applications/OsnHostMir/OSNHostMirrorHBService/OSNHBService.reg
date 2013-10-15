@@ -1,0 +1,15 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\OSNService]
+"Type"=dword:00000010
+"Start"=dword:00000003
+"ErrorControl"=dword:00000001
+"DisplayName"="Storage Trust OSN HeartBeat Service"
+"ObjectName"="LocalSystem"
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\OSNHBService\Parameters]
+
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\Application\OSNHBService]
+"EventMessageFile"=""
+"TypesSupported"=dword:EVENTLOG_ERROR_TYPE|EVENTLOG_WARNING_TYPE|EVENTLOG_INFORMATION_TYPE
