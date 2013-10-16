@@ -1,0 +1,211 @@
+
+#ifndef	_OSNRPCCOMMON_H_
+#define _OSNRPCCOMMON_H_
+
+
+#define	OSN_MAX_USERNAME		32			//Maximum length of the username, limited by windows
+#define	OSN_MAX_PASSWORD		32			//Maximum length of the password, limited by windows
+//#define	MAXIMUM_VOLUME_NUMBER		256 
+#define MAXIMUM_COMPUTER_NAME		31  ///Maximum length of the computer name
+#define MAXIMUM_SOCKET_LISTENING    128 
+
+//OSN command ID
+#define	OSNRPC_CMD_PING				            0x0001
+#define OSNRPC_CMD_RESET			            0x0002
+#define OSNRPC_CMD_SHUTDOWN			            0x0003
+#define OSNRPC_CMD_DELETE_BACKUP	            0x0004
+#define OSNRPC_CMD_CREATE_BACKUP	            0x0005
+#define OSNRPC_CMD_GET_TARGET_STATE	            0x0006
+#define OSNRPC_CMD_GET_POOL_INFO				0X0007
+#define OSNRPC_CMD_GET_VOLUME_INFO				0X0008
+#define OSNRPC_CMD_GET_DISKINPOOL_INFO			0X0009
+#define OSNRPC_CMD_GET_REMOTE_SERVER_COUNT      0x000A
+#define OSNAGENT_CMD_CREATE_CDP_SNAPSHOT        0x000B
+#define OSNAGENT_CMD_CREATE_SNAPSHOT            0x000C
+#define OSNRPC_CMD_CLIENT_CREATE_CDP_SNAPSHOT   0x000D
+#define OSNRPC_CMD_OSNMIR_GET_STATE				0X000E
+#define OSNRPC_CMD_GET_CONFIGFILE_INFO	0X0010
+#define OSNRPC_CMD_GET_LINKSTATE_INFO			0X0011
+#define OSNRPC_CMD_GET_SNAPSHOTSTATE_INFO		0X0012
+#define OSNRPC_CMD_GET_SANVOLUME_INFO			0X0013
+#define OSNRPC_CMD_GET_STORSERNAME_INFO			0X0014
+#define OSNRPC_CMD_CREATE_SNAPSHOT				0X0015
+#define OSNRPC_CMD_DELETE_SNAPSHOT				0X0016
+#define OSNRPC_CMD_ENABLE_SNAPSHOT				0x0017
+#define OSNRPC_CMD_DISABLE_SNAPSHOT				0x0018
+#define OSNRPC_CMD_MAKE_SNAPSHOT_CI				0x0019
+#define OSNRPC_CMD_GET_TARGETS_STATE		    0x001A
+#define OSNRPC_CMD_OSNMIR_SET                   0x001B
+#define OSNRPC_CMD_OSNMIR_DELETE                0x001C
+#define OSNRPC_CMD_OSNMIR_INIT                  0x001D
+#define OSNRPC_CMD_OSNMIR_STOP_INIT             0x001E
+#define OSNRPC_CMD_OSNMIR_FORCE_RECOVERY        0x001F
+#define OSNRPC_CMD_DELETE_VOLUME				0x0020
+#define OSNRPC_CMD_CREATE_VOLUME				0x0021
+#define OSNRPC_CMD_GET_CHECK_DISK_RAW_INFO		0x0022
+#define OSNRPC_CMD_GET_DISK_INFO				0x0023
+#define OSNRPC_CMD_GET_ISBUS_INIPORTLIST_INFO	0x0024
+#define OSNRPC_CMD_REMOTE_CREATE_BACKUP			0x0025
+#define OSNRPC_CMD_REMOTE_DELETE_BACKUP			0x0026
+#define OSNRPC_CMD_INI_SANVOLUME				0x0027
+#define OSNRPC_CMD_CANCEL_INI_SANVOLUME			0x0028
+#define OSNRPC_CMD_DELETE_DISK_FROM_POOL        0x0029
+#define OSNRPC_CMD_OSNMIR_ASYNCH_INFO		    0x002A
+#define OSNRPC_CMD_ADD_DISK_TO_POOL             0x0030
+#define OSNRPC_CMD_REFRESH_POOL_INFO            0x0031
+#define OSNRPC_CMD_ADD_MAPPING                  0x0032
+#define OSNRPC_CMD_UN_MAPPING                   0x0033
+#define OSNRPC_CMD_GET_BACKUPFILE_INFO          0x0034
+#define OSNRPC_CMD_SET_MIRROR                   0x0035
+#define OSNRPC_CMD_CREATE_POOL                  0x0036
+#define OSNRPC_CMD_DELETE_POOL                  0x0037
+#define OSNRPC_CMD_GET_LOCAL_PORT               0x0038
+#define OSNRPC_CMD_GET_LOCAL_VOLUME             0x0039
+#define OSNRPC_CMD_ADD_REMOTEMAPPING			0x003A
+#define OSNRPC_CMD_DELETE_REMOTEMAPPING			0x003B
+#define OSNRPC_CMD_GET_HA_DISK_STATE            0x0040
+#define OSNRPC_CMD_ADD_SERVER                   0x0041
+#define OSNRPC_CMD_REMOVE_SERVER                0x0042
+#define OSNRPC_CMD_SEND_FILE                    0x0043
+#define OSNRPC_CMD_SET_BACKUP_RELATION          0x0044
+#define OSNRPC_CMD_REMOVE_BACKUP_RELATION       0x0045
+#define OSNRPC_CMD_CDP_CREATE_SNAPSHOT          0x0046
+#define OSNRPC_CMD_CDP_DELETE_SNAPSHOT          0x0047
+#define OSNRPC_CMD_CDP_GET_SNAPSHOT_LIST        0x0048
+#define OSNRPC_CMD_CDP_GET_SNAPSHOT_INFO        0x0049
+#define OSNRPC_CMD_GET_CDP_PERVOLUME_RESOURCE_INFO        0x004A
+#define OSNRPC_CMD_PERVOLUME_CDP_UNSET			 0x004B
+#define OSNRPC_CMD_PERVOLUME_CDP_SET              0x004C
+#define OSNRPC_CMD_PERVOLUME_CDP_ALLOCATEDINFO 0x004D
+#define OSNRPC_CMD_PERVOLUME_CDP_SNAPCOUNT 0x004E
+#define OSNRPC_CMD_CDP_CREATE_LOOPBACK          0x0050
+#define OSNRPC_CMD_CDP_DELETE_LOOPBACK          0x0051
+#define OSNRPC_CMD_CDP_GET_SNAPSHOT_UNITSIZE      0x0052
+#define OSNRPC_CMD_CDP_GET_SNAPSHOT_COUNT         0x0053
+#define OSNRPC_CMD_CDP_GET_EXTENDEDSNAPSHOT_COUNT 0x0054
+#define OSNRPC_CMD_GET_SNAPSHOTSTREAM_LIST        0x0055
+#define OSNRPC_CMD_CDP_GET_ASSOCIATED_SNAPSHOT    0x0056
+#define OSNRPC_CMD_CDP_CHECK_VOLUME_LOOPBACK      0x0057
+#define OSNRPC_CMD_GET_GUILOCK                    0x0058
+#define OSNRPC_CMD_SET_GUILOCK                    0x0059
+#define OSNRPC_CMD_GET_RCASNYCH_STORAGE_INFO      0x005A
+#define OSNRPC_CMD_GET_CDP_ALLOCATE_INFO          0x005B
+#define OSNRPC_CMD_CREATE_LOOPBACK                0x005C
+#define OSNRPC_CMD_DELETE_LOOPBACK                0X005D
+#define OSNRPC_CMD_RELOAD_VMPOOL                  0x005E
+#define OSNRPC_CMD_FORCERELOAD_POOL              0x005F
+#define OSNRPC_CMD_ADD_INITIATOR_INFO           0x0060
+#define OSNRPC_CMD_REMOVE_INITIATOR             0x0061
+#define OSNRPC_CMD_GET_AVAILABLE_VOLUME_INFO	0x0062
+#define OSNRPC_CMD_GET_SERVER_BACKUP_INFO       0x0063
+#define OSNRPC_CMD_GET_CLIENT_BACKUP_INFO       0x0064
+#define OSNRPC_CMD_GET_CLIENT_BACKUP_STATUS     0x0065
+#define OSNRPC_CMD_GET_SERVER_LICENCE_VALUE     0x0066
+#define OSNRPC_CMD_CHECK_IS_BACKUP		        0x0067
+#define OSNRPC_CMD_GET_CDP_SRC_VOLUMEID         0x0068
+#define OSNRPC_CMD_CDP_RESTORE                    0x0069
+#define OSNRPC_CMD_GET_INITIATOR_IPADDR_BY_WWN    0x006A
+#define OSNRPC_CMD_GET_NAS_VOLUME_GROUP_CFG       0x006B
+#define OSNRPC_CMD_MARK_RC                        0x006C
+#define OSNRPC_CMD_GET_REMOTE_SERVER_CDPSETTING   0x0070
+#define OSNRPC_CMD_SET_REMOTE_SERVER_CDPSETTING   0x0071
+#define OSNRPC_CMD_DELETE_REMOTE_SERVER_CDPSETTING 0x0072
+#define OSNRPC_CMD_GET_REMOTE_SERVER_BACKUPMODE   0x0073
+#define OSNRPC_CMD_SET_SERVER_SYNCH_BACKUPMODE    0x0074
+#define OSNRPC_CMD_SET_SERVER_ASYNCH_BACKUPMODE   0x0075
+#define OSNRPC_CMD_SET_REMOTE_NOTRANSFERTIME      0x0076
+#define OSNRPC_CMD_CDP_DELETE_SNAPSHOT_AND_RELATION 0x0077
+#define OSNRPC_CMD_GET_RAW_DISKS                    0x0078
+#define OSNRPC_CMD_NOTIFICATION                   0x0079
+#define OSNRPC_CMD_ADD_APPSERVER                  0x007A
+#define OSNRPC_CMD_REMOVE_APPSERVER               0x007B
+#define OSNRPC_CMD_ADD_CHANNEL                    0x007C
+#define OSNPRC_CMD_REMOVE_CHANNEL                 0x007D
+#define OSNAGENT_CMD_CREATE_CDP                   0x007E
+#define OSNAGENT_CMD_CREATE_GROUP_CDPS			  0x007F
+
+
+#define OSNRPC_CMD_GET_ALARM_FILE				  0x002B
+#define OSNRPC_CMD_CDP_BREAK_RESTORE			  0x002C
+#define OSNRPC_CMD_STOP_START_SERVICE			  0x002D
+#define OSNRPC_CMD_SET_REMOTECONTROL_WWN		  0x003C
+#define OSNRPC_CMD_OPTIMIZE_CHECK_REMOTE_SERVER			  0x003D
+#define OSNRPC_CMD_CDP_CREATE_LOOPBACK_FOR_MAPPING 0x003E
+#define OSNRPC_CMD_SET_OR_GET_MAXBITMAPBUFFERSIZE 0x003F
+#define OSNRPC_CMD_GET_INSTALLDATE				  0x004F
+#define OSNRPC_CMD_SET_SNMPTRAPADDRESS			  0x006D
+#define OSNRPC_CMD_SERVER_NEW_REPLICATION		  0x006E
+#define OSNRPC_CMD_SERVER_DELETE_REPLICATION	  0x006F
+
+#define OSNRPC_CMD_SERVER_INITILIZE_SERVER		  0x0080
+#define OSNRPC_CMD_OPTIMIZE_DELETE_CDP_SNAPSHOT_AND_RELATION   0x0081
+#define OSNRPC_CMD_OPTIMIZE_DELETE_CDP_SNAPSHOT	  0x0082
+#define OSNRPC_CMD_OPTIMIZE_DELETE_VOLUMES		  0x0083
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////ADD END ////////////////////////////////////////////////////
+
+
+// OSN Command Status
+#define CMD_STATUS_SUCCESS			0x0000
+#define	CMD_STATUS_INVALID_HOST		0x0001
+#define	CMD_STATUS_FAILED			0x0002
+#define	CMD_STATUS_SEND_FAILED		0x0003
+#define CMD_STATUS_CONNECT_FAILED   0x0004
+#define	CMD_STATUS_INIT				0x0010
+#define CMD_STATUS_SNAPFIND         0x0011
+#define CMD_STATUS_BUFFER_SMALL     0x0012
+#define CMD_STATUS_LOCK_FIND        0x0013
+#define CMD_STATUS_NO_LOCK          0X0014
+#define CMD_STATUS_LOCK_FAILED      0X0015
+#define CMD_STATUS_GUI_OPEN         0x0016
+#define CMD_STATUS_BACKUP_VOLUME    0x0017
+#define CMD_STATUS_BACKUP_NOT_EXIST 0x0018
+#define	CMD_STATUS_NO_BACKUP_RIGHT  0x0019
+#define CMD_STATUS_SKIP             0x0020
+#define CMD_STATUS_WITHOUT_VALUE    0x0021
+
+
+
+
+//OSN command flag, can not be ORed.
+#define OSNRPC_CMD_ASK				0x01
+#define OSNRPC_CMD_RESPONSE			0x02
+
+
+
+typedef struct _MESSAGE_HEADER
+{
+	unsigned short	retStatus;						//return Status indicating result of the command execution
+	char			flags;							//ASK/RESPONSE
+	unsigned char	command;						//PING, CREATE_BACKUP, etc.
+	unsigned short	paraNum;						//number of parameters for this command
+	DWORD	        dataLength;						//parameter data buffer length
+	unsigned int	timeStamp;						//The time (h*60*60+m*60+s[sec]) the message being generated
+	char			initiatorName[OSN_MAX_USERNAME];
+	char			initiatorWWN[OSN_MAX_PASSWORD];
+} MESSAGE_HEADER, *PMESSAGE_HEADER;
+typedef struct _SendCfgFile_Message_Header
+{
+   MESSAGE_HEADER msg;
+   unsigned short checkSum;
+
+}SendCfgFile_Message_Header,*PSendCfgFile_Message_Header;
+
+
+
+//define constants
+#define OSNRPC_SOCKET_CLIENT_PORT	59185		//default OSN RPC Client port
+#define	OSNRPC_SOCKET_SERVICE_PORT	59186		//Default OSN Rpc service port
+#define OSNRPC_HBSOCKET_CLIENT_PORT	49185		//default OSN RPC Client port
+#define	OSNRPC_HBSOCKET_SERVICE_PORT	49186		//Default OSN Rpc service port
+
+#define	OSNRPC_MAX_MSG_LEN			1024*512			//Maximum message length sent by OSN Rpc service 
+#define OSNRPC_MAX_MSG				2			//Maximum outstanding messages sent by the client
+#define	OSNRPC_MSGHEAD_LEN			sizeof(MESSAGE_HEADER)
+#define	OSNRPC_MAX_MSGPARA_LEN		OSNRPC_MAX_MSG_LEN - OSNRPC_MSGHEAD_LEN
+
+
+
+
+#endif //_OSNRPCCOMMON_H_

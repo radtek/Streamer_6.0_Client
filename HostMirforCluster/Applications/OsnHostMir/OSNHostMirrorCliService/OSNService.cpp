@@ -13,7 +13,7 @@
 #include "..\common\OSNLicence.h"
 #include "..\OsnVolumeCopyApi\Configure.h"
 #include "Configure.h"
-#include "..\OSNService\OSNRpcCommon.h"
+#include "OSNRpcCommon.h"
 #include "OSNRpcSocket.h"
 #include "OSNRpcServer.h"
 #include "OSNRemoteServer.h"
