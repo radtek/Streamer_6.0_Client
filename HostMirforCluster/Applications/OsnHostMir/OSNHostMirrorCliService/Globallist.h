@@ -2,6 +2,7 @@
 #define _CLOBALLIST_H
 
 #include "MirrorUIConfigure.h"
+#include "Windows.h"
 #include <vector>
 using namespace std;
 
@@ -9,7 +10,7 @@ class CGlobalList
 {
 public: 
 	const int m_Length;
-    std::vector<DWORD>      *m_pArrayList;
+	std::vector<DWORD>      *m_pArrayList;
 
 public:
 	CGlobalList(unsigned int Length):m_Length(Length)
@@ -27,7 +28,7 @@ public:
 		return m_pArrayList->at(index);
 	}
 
-    void AddItem(DWORD pObject)
+	void AddItem(DWORD pObject)
 	{
 		std::vector<DWORD>::iterator it = m_pArrayList->end();
 		m_pArrayList->insert(it,pObject);
@@ -56,7 +57,7 @@ public:
 	}
 };
 
-    
+
 class CDiskInfoList :public CGlobalList
 {
 public:
@@ -64,207 +65,195 @@ public:
 
 	CDiskInfo *GetDiskInfo(wstring *guid)
 	{
-			   CDiskInfo *pDiskInfo = NULL;
-			   for(DWORD i=0;i<m_pArrayList->size();i++)
-			   {
-				   pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
-				   if(pDiskInfo->m_Guid == guid)
-					   return pDiskInfo;
+		CDiskInfo *pDiskInfo = NULL;
+		for(DWORD i=0;i<m_pArrayList->size();i++)
+		{
+			pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
+			if(pDiskInfo->m_Guid->compare(guid->c_str()) == 0)
+				return pDiskInfo;
+		}
+		return NULL;
+	}
 
-			   }
-
-			   return NULL;
-		   }
+	 CDiskInfo * GetDiskInfoByString(wstring *guid)
+		{
+			CDiskInfo *pDiskInfo = NULL;
+			for(DWORD i=0;i<m_pArrayList->size();i++)
+			{
+				pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
+				if(pDiskInfo->m_Guid->compare(guid->c_str()) == 0)
+					return pDiskInfo;
+			}
+			return NULL;
+		}
 
 	CDiskInfo *GetDiskByIndex(unsigned int index)
-				{
-					CDiskInfo *pDiskInfo = NULL;
-				   for(DWORD i=0;i<m_pArrayList->size();i++)
-				   {
-					   pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
-					   if(pDiskInfo->m_DiskIndex== index)
-						   return pDiskInfo;
-
-				   }
-
-				   return NULL;
-
-				}
+	{
+		CDiskInfo *pDiskInfo = NULL;
+		for(DWORD i=0;i<m_pArrayList->size();i++)
+		{
+			pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
+			if(pDiskInfo->m_DiskIndex == index)
+				return pDiskInfo;
+		}
+		return NULL;
+	}
 
 	bool HideVolume(wstring *guid)
-				{
-					
-					CDiskInfo *pDiskInfo = NULL;
-					for(DWORD i=0;i<m_pArrayList->size();i++)
-					{
-					   pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
-					   if(pDiskInfo == NULL)
-						   return false;
+	{
+		CDiskInfo *pDiskInfo = NULL;
+		for(DWORD i=0;i<m_pArrayList->size();i++)
+		{
+			pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
+			if(pDiskInfo == NULL)
+				return false;
 
-					   if(pDiskInfo->m_Guid== guid
-						   &&pDiskInfo->m_Role == Mirror_Target)
-					   {
-						   return true;
-					   }
-
-					}
-
-				   return false;
-
-				}
+			if((pDiskInfo->m_Guid->compare(guid->c_str()) == 0)
+				&&pDiskInfo->m_Role == Mirror_Target)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 };
 
 class CVolumeInfoList: public CGlobalList
 {
 public: CVolumeInfoList(unsigned int length):CGlobalList(length){}
-	    
+
 public: CVolumeInfo * GetVolumeInfo(wstring *guid)
+		{
+			CVolumeInfo *pVolumeInfo = NULL;
+			for(DWORD i=0;i<m_pArrayList->size();i++)
+			{
+				pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
+				if(NULL == pVolumeInfo)
 				{
-					CVolumeInfo *pVolumeInfo = NULL;
-					for(DWORD i=0;i<m_pArrayList->size();i++)
-					{
-						pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
-						if(NULL == pVolumeInfo)
-						{
-							return NULL;
-						}
-						if(pVolumeInfo->m_GUID==guid)
-							return pVolumeInfo;
-
-					}
-
 					return NULL;
 				}
-		 public: CVolumeInfo * GetVolumeInfoByLabel(wstring *LabelName)
+				if(pVolumeInfo->m_GUID->compare(guid->c_str()) == 0)
+					return pVolumeInfo;
+			}
+			return NULL;
+		}
+
+public: CVolumeInfo * GetVolumeInfoByLabel(wstring *LabelName)
+		{
+			CVolumeInfo *pVolumeInfo = NULL;
+			for(DWORD i=0;i<m_pArrayList->size();i++)
+			{
+				pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
+				if(pVolumeInfo->m_VolumeLable->compare(LabelName->c_str()) == 0)
+					return pVolumeInfo;
+			}
+			return NULL;
+		}
+
+public: CVolumeInfo * GetVolumeInfoByString(wstring *guid)
+		{
+			CVolumeInfo *pVolumeInfo = NULL;
+			for(DWORD i=0;i<m_pArrayList->size();i++)
+			{
+				pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
+				if(pVolumeInfo->m_GUID->compare(guid->c_str()) == 0)
+					return pVolumeInfo;
+			}
+			return NULL;
+		}
+
+public: bool CheckVolumeMirrored(wstring *guid)
+		{
+
+			CVolumeInfo *pVolumeInfo = NULL;
+			for(DWORD i=0;i<m_pArrayList->size();i++)
+			{
+
+				pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
+				if((pVolumeInfo->m_GUID->compare(guid->c_str()) == 0) &&
+					pVolumeInfo->m_Role!=Free)
 				{
-					CVolumeInfo *pVolumeInfo = NULL;
-					for(DWORD i=0;i<m_pArrayList->size();i++)
-					{
-						pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
-						if(pVolumeInfo->m_VolumeLable->compare(LabelName->c_str()))
-							return pVolumeInfo;
-
-					}
-
-					return NULL;
+					return true;
 				}
-		  public: CVolumeInfo * GetVolumeInfoByString(wstring *guid)
-				{
-					CVolumeInfo *pVolumeInfo = NULL;
-					for(DWORD i=0;i<m_pArrayList->size();i++)
-					{
-						pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
-						if(pVolumeInfo->m_GUID->compare(guid->c_str()))
-							return pVolumeInfo;
+			}
+			return false;
+		}
 
-					}
+public : unsigned __int64 GetBlocksBySignature(wstring *guid)
+		 {
+			 unsigned __int64 TotalSize = 0;
 
-					return NULL;
-				}
+			 CVolumeInfo *pVolumeInfo = NULL;
 
-		  public: bool CheckVolumeMirrored(wstring *guid)
-				  {
-					  
-					  CVolumeInfo *pVolumeInfo = NULL;
-					  for(DWORD i=0;i<m_pArrayList->size();i++)
-					  {
-						
-						  pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
-						  if(pVolumeInfo->m_GUID == guid &&
-							  pVolumeInfo->m_Role!=Free)
-						  {
-							  return true;
-						  }
-						 
-					  }
-					return false;
-
-
-				  }
-	public : unsigned __int64 GetBlocksBySignature(wstring *guid)
+			 for(DWORD i=0;i<m_pArrayList->size();i++)
 			 {
-				 unsigned __int64 TotalSize = 0;
-
-				 CVolumeInfo *pVolumeInfo = NULL;
-
-				 for(DWORD i=0;i<m_pArrayList->size();i++)
+				 pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
+				 if(pVolumeInfo->m_GUID->compare(guid->c_str()) == 0)
 				 {
-					pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
-					if(pVolumeInfo->m_GUID == guid)
-					{
-						TotalSize= TotalSize+pVolumeInfo->m_VolumeSize;
-					}
+					 TotalSize= TotalSize+pVolumeInfo->m_VolumeSize;
 				 }
-
-				 return TotalSize;
 			 }
+			 return TotalSize;
+		 }
 };
 
 class CMirrorInfoList : public CGlobalList
-	{
- 	   public:CMirrorInfoList(unsigned int length):CGlobalList(length){}
+{
+public:CMirrorInfoList(unsigned int length):CGlobalList(length){}
 
-	   public:CMirrorInfo* GetMirrorInfo(wstring* Sguid,bool Flag) 
-			  {
-				  CMirrorInfo *pMirrorInfo = NULL;
-				  for(DWORD i=0;i<m_pArrayList->size();i++)
-				  {
-					  pMirrorInfo = (CMirrorInfo *)(m_pArrayList->at(i));
-					  if(Flag)
-					  {
-						  if(pMirrorInfo->m_SourceGuid==Sguid)
-						     return pMirrorInfo;
-					  }
-					  else
-					  {
-						  if(pMirrorInfo->m_TargetGuid==Sguid)
-						      return pMirrorInfo;
-
-					  }
-				  }
-
-				  return NULL;
-			  }
-
-	public:CMirrorInfo *GetDiskMirrorInfo(wstring *guid,bool Flag)
+public:CMirrorInfo* GetMirrorInfo(wstring* Sguid,bool Flag) 
+	   {
+		   CMirrorInfo *pMirrorInfo = NULL;
+		   for(DWORD i=0;i<m_pArrayList->size();i++)
 		   {
-			      CMirrorInfo *pMirrorInfo = NULL;
-				  for(DWORD i=0;i<m_pArrayList->size();i++)
-				  {
-					  pMirrorInfo = (CMirrorInfo *)(m_pArrayList->at(i));
-					  if(Flag)
-					  {
-						  if(pMirrorInfo->m_SourceGuid==guid)
-						     return pMirrorInfo;
-					  }
-					  else
-					  {
-						  if(pMirrorInfo->m_TargetGuid==guid)
-						      return pMirrorInfo;
-
-					  }
-				  }
-
-				  return NULL;
+			   pMirrorInfo = (CMirrorInfo *)(m_pArrayList->at(i));
+			   if(Flag)
+			   {
+				   if(pMirrorInfo->m_SourceGuid->compare(Sguid->c_str()) == 0)
+					   return pMirrorInfo;
+			   }
+			   else
+			   {
+				   if(pMirrorInfo->m_TargetGuid->compare(Sguid->c_str()) == 0)
+					   return pMirrorInfo;
+			   }
 		   }
+		   return NULL;
+	   }
 
-	    public:CMirrorInfo* GetMirrorInfo(wstring *Sourceguid,wstring *Targetguid)
-			  {
-				  CMirrorInfo *pMirrorInfo = NULL;
-				  for(DWORD i=0;i<m_pArrayList->size();i++)
-				  {
-					  pMirrorInfo = (CMirrorInfo *)(m_pArrayList->at(i));
+public:CMirrorInfo *GetDiskMirrorInfo(wstring *guid,bool Flag)
+	   {
+		   CMirrorInfo *pMirrorInfo = NULL;
+		   for(DWORD i=0;i<m_pArrayList->size();i++)
+		   {
+			   pMirrorInfo = (CMirrorInfo *)(m_pArrayList->at(i));
+			   if(Flag)
+			   {
+				   if(pMirrorInfo->m_SourceGuid->compare(guid->c_str()) == 0)
+					   return pMirrorInfo;
+			   }
+			   else
+			   {
+				   if(pMirrorInfo->m_TargetGuid->compare(guid->c_str()) == 0)
+					   return pMirrorInfo;
+			   }
+		   }
+		   return NULL;
+	   }
 
-					  if(pMirrorInfo->m_SourceGuid->compare(Sourceguid->c_str())
-						  &&pMirrorInfo->m_TargetGuid->compare(Targetguid->c_str()))
-						return pMirrorInfo;
-				  }
+public:CMirrorInfo* GetMirrorInfo(wstring *Sourceguid,wstring *Targetguid)
+	   {
+		   CMirrorInfo *pMirrorInfo = NULL;
+		   for(DWORD i=0;i<m_pArrayList->size();i++)
+		   {
+			   pMirrorInfo = (CMirrorInfo *)(m_pArrayList->at(i));
 
-				  return NULL;
-			  }
-
-
-	};
-
+			   if((pMirrorInfo->m_SourceGuid->compare(Sourceguid->c_str()) == 0)
+				   &&(pMirrorInfo->m_TargetGuid->compare(Targetguid->c_str()) == 0))
+				   return pMirrorInfo;
+		   }
+		   return NULL;
+	   }
+};
 
 #endif

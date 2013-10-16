@@ -1,3 +1,6 @@
+#ifndef _OSNXML_H
+#define _OSNXML_H
+
 #include <stdlib.h>
 
 #import <msxml6.dll>
@@ -9,8 +12,6 @@ public:
 
 	COSNxml()
 	{
-		CoInitialize(NULL);
-
 		this->m_pDoc                    = NULL; 
 	    this->m_pProInstruction         = NULL; 
 		this->m_pComment                = NULL; 
@@ -26,24 +27,25 @@ public:
 		}
 	}
 
-	virtual ~COSNxml()
-	{
-		this->m_pDoc                    = NULL; 
-	    this->m_pProInstruction         = NULL; 
-		this->m_pComment                = NULL; 
-		this->m_pRootElement            = NULL;
-		this->m_pElement                = NULL; 
-		this->m_pAttrNode               = NULL;
-		this->m_pNode = NULL, m_pNodeSub = NULL;
+	//virtual ~COSNxml()
+	//{
+	//	this->m_pDoc                    = NULL; 
+	//    this->m_pProInstruction         = NULL; 
+	//	this->m_pComment                = NULL; 
+	//	this->m_pRootElement            = NULL;
+	//	this->m_pElement                = NULL; 
+	//	this->m_pAttrNode               = NULL;
+	//	this->m_pNode                   = NULL;
+	//	this->m_pNodeSub                = NULL;
 
-		CoUninitialize();
-	}
+	//	//CoUninitialize();
+	//}
 
 public:
 	DWORD CreateXMLFile(char *pRootName);
 
 	DWORD GetXMLText(WCHAR *Msg);
-	DWORD GetXMLNodeText(char *pRootName,char *pNodeName);
+	DWORD GetXMLNodeText(char *pRootName,char *pNodeName,char *pOutBuffer);
 
 	DWORD UnicodeToUTF_8(wchar_t *pUnicode ,char *pUtf8);
 	DWORD UTF_8ToUnicode(char *pUtf8 ,wchar_t *pUnicode);
@@ -63,3 +65,5 @@ public:
     MSXML2::IXMLDOMAttributePtr                 m_pAttrNode;                     // 属性
 	MSXML2::IXMLDOMNodeListPtr                  m_pNodeList;                   //节点链表
 };
+
+#endif

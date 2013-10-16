@@ -191,7 +191,7 @@
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\common;$(IntDir);$(IntDir)..\Common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WINVER=0x500;_DEBUG;WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>
       </PrecompiledHeader>
@@ -285,6 +285,8 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="NewMirror.cpp" />
+    <ClCompile Include="OsnMirrorCopyXML.cpp" />
     <ClCompile Include="OSNRemoteServer.cpp" />
     <ClCompile Include="OSNRpcServer.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug Win2k|Win32'">Disabled</Optimization>
@@ -352,6 +354,7 @@
     <ClInclude Include="Configure.h" />
     <ClInclude Include="Globallist.h" />
     <ClInclude Include="MirrorUIConfigure.h" />
+    <ClInclude Include="NewMirror.h" />
     <ClInclude Include="OSNRemoteServer.h" />
     <ClInclude Include="OSNRpcServer.h" />
     <ClInclude Include="OSNRpcSocket.h" />

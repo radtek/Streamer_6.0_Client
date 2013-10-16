@@ -99,9 +99,8 @@ DWORD COSNxml::LoadFile(wchar_t *pXML)
 	return EXIT_SUCCESS;
 }
 
-DWORD COSNxml::GetXMLNodeText(char *pRootName,char *pNodeName)
+DWORD COSNxml::GetXMLNodeText(char *pRootName,char *pNodeName,char *pOutBuffer)
 {
-	char szf[512];
 	m_pNode = m_pDoc->selectSingleNode((_bstr_t)(char*)pRootName);
 	if(m_pNode == NULL)
 	{
@@ -114,6 +113,6 @@ DWORD COSNxml::GetXMLNodeText(char *pRootName,char *pNodeName)
 		return EXIT_FAILURE;
 	}
 
-	strcpy(szf,(char*)m_pNode->Gettext());
+	strcpy(pOutBuffer,(char*)m_pNodeSub->Gettext());
 	return EXIT_SUCCESS;
 }

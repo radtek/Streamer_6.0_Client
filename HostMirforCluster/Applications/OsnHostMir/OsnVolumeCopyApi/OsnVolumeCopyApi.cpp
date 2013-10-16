@@ -218,6 +218,10 @@ int	__cdecl	OSNGetDiskGUIDByVolume(wchar_t			volumeLabel,		//C, D, E etc
 {
 	ULONG			retByte;
 	char			volumeName[64];
+	DISK_INFO     pDisk;
+	DISK_INFOEX   pDiskEx;
+	int restatus = ERROR_SUCCESS;
+
 	sprintf_s(volumeName, "\\\\.\\%c:", volumeLabel);
 	HANDLE	hVolume = CreateFile(volumeName,
 							GENERIC_READ | GENERIC_WRITE, 
@@ -277,7 +281,19 @@ int	__cdecl	OSNGetDiskGUIDByVolume(wchar_t			volumeLabel,		//C, D, E etc
 
 		if(i==0)
 		{
-			OsnGetDiskGUID(pDiskExtent->DiskNumber,pDiskGUID);
+			memset(&pDisk,0,sizeof(DISK_INFO));
+			memset(&pDiskEx,0,sizeof(DISK_INFOEX));
+			pDisk.m_DiskIndex=i;
+
+			int ErrorCode=OsnGetDisk(&pDisk);
+			if(ErrorCode == 0)
+			{
+				OsnGUIDToString(pDiskGUID,pDisk.m_DiskID.SAN_VolumeID.m_VolumeGuid);
+			}
+			else
+			{
+				restatus = ERROR_INVALID_FUNCTION;
+			}
 		}
 
 	}
@@ -285,7 +301,7 @@ int	__cdecl	OSNGetDiskGUIDByVolume(wchar_t			volumeLabel,		//C, D, E etc
 
    	free(pVolumeDiskExtents);
 	CloseHandle(hVolume);
-	return ERROR_SUCCESS;
+	return restatus;
 }
 
 int	__cdecl	OSNGetVolumeID(wchar_t			volumeLabel,		//C, D, E etc

@@ -17,8 +17,6 @@ class COSNService
 
 private:
 
-	COSNRpcServer	m_OSNRpcServer;
-
 	HANDLE			m_hLogfileEvent;
 
 	DWORD			m_dwTotalFreeBufferSize;
@@ -45,6 +43,8 @@ private:
 public:
     SERVICE_STATUS	m_Status;
 	bool			m_LicenceChecked;
+
+	COSNRpcServer	m_OSNRpcServer;
 
 	char			fileDirectory[MAX_PATH];
 	bool			m_TrialVersion;

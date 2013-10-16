@@ -160,6 +160,7 @@ typedef struct HB_MESSAGE_HEADER
 //      ChannelType             //通道类型
 //} HC_CHANNEL_ATTRIBUTE,*PHC_CHANNEL_ATTRIBUTE;
 
+
 #define OSNRPC_HBCMD_ASK				0x01
 #define OSNRPC_HBCMD_RESPONSE			0x02
 

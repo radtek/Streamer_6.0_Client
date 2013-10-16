@@ -1,3 +1,6 @@
+#ifndef _MIRRORUICONFIGURE_H
+#define _MIRRORUICONFIGURE_H
+
 #include <string>
 using namespace std;
 
@@ -113,6 +116,7 @@ public:
 		else
 			m_Protected = L"true";
 
+		m_Role      = role;
 		m_DiskSize  = Size;
 		m_DiskIndex = Index;
 		m_Guid      = guid;
@@ -147,6 +151,7 @@ public:
 		else
 			m_Protected = L"true";
 
+		m_Role          = role;
 		m_VolumeSize    = Size ;
 		m_UsedSpace     = Size - FreeSize;
 		m_GUID          = guid;
@@ -231,3 +236,6 @@ public:
 
 private: 
 };
+
+
+#endif

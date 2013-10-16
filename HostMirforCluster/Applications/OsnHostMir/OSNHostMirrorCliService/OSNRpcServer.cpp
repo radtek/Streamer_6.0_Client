@@ -34,7 +34,6 @@ COSNRpcServer::COSNRpcServer() : COSNRpcSocket()
 	m_dwThreadID		 = 0;
 	m_dwSocketThreadID   = 0;
 	m_startSocketThreadHandle = INVALID_HANDLE_VALUE;
-	m_pCopyXML           = new COsnMirrorCopyXML();
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
 
@@ -47,7 +46,6 @@ COSNRpcServer::COSNRpcServer(UINT inPort) : COSNRpcSocket(inPort, true)
 	m_dwThreadID		 = 0;
 	m_dwSocketThreadID   = 0;
 	m_startSocketThreadHandle = INVALID_HANDLE_VALUE;
-	m_pCopyXML           = new COsnMirrorCopyXML();
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
 }
@@ -73,6 +71,31 @@ COSNRpcServer::~COSNRpcServer()
 //OSN Rpc service thread function
 DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)	
 {
+	//CoInitialize(NULL);
+	HRESULT hres;
+	hres =  CoInitializeEx(0, COINIT_APARTMENTTHREADED);
+	if (FAILED(hres))
+	{
+		printf("CoInitializeEx error\n");
+		return EXIT_FAILURE;              // Program has failed.
+	}
+	// 设置进程安全级别
+	hres =  CoInitializeSecurity(NULL,
+		-1,      // COM negotiates service                 
+		NULL,    // Authentication services
+		NULL,    // Reserved
+		RPC_C_AUTHN_LEVEL_DEFAULT,    // authentication
+		RPC_C_IMP_LEVEL_IMPERSONATE,  // Impersonation
+		NULL,             // Authentication info
+		EOAC_NONE,        // Additional capabilities
+		NULL              // Reserved
+		);            
+	if (FAILED(hres))
+	{
+		printf("CoInitializeSecurity error\n");
+		//CoUninitialize();
+		return EXIT_FAILURE;          // Program has failed.
+	}
 
 	COSNRpcServer *pOSNRpcServer = (COSNRpcServer *) pData;
 
@@ -91,6 +114,8 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 	//loop to wait the income message
 	SOCKADDR_IN	sinAccept;							//receive the income address information
 	SOCKET   sockConn;   
+	
+	pOSNRpcServer->m_pCopyXML           = new COsnMirrorCopyXML();
 	while (pOSNRpcServer->OSNRpcState() == OSNRPC_RUNNING)
 	{
 		if(!pOSNRpcServer->m_startSocketSuccess)
@@ -121,9 +146,8 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 	pOSNService->DecrementThreadCount();
 	pOSNService->LogMessage("INFO: OSN HostMirrorClient Listen thread stopped.");
 
-
+	CoUninitialize();
 	pOSNRpcServer->SetOSNRpcState(OSNRPC_STOPPED);
-
 	return 0;			//thread function return
 }
 
@@ -168,7 +192,6 @@ DWORD COSNRpcServer::StartListenThread()
 	//start the socket
 	//if (!OSNRpcStartSocket(true))
 	//	return OSNRpcGetLastError();
-
 		m_handleThread = CreateThread(NULL,
 			0,
 			OSNRpcListenThread,
@@ -340,7 +363,192 @@ DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char *pIpAddress,char *p
 
 DWORD COSNRpcServer::OSNRpcSetServiceInfo()
 {
+	m_IsProtected = false;
+	memset(m_ServerIP,0,sizeof(m_ServerIP));
 	return EXIT_SUCCESS;
+}
+
+DWORD COSNRpcServer::OSNRpcRemoveMirror(DWORD pXML)
+{
+	bool MirrorTypeB;
+	char MirrorTypeC[5];
+	char SrcGUIDC[64];
+	char DesGUIDC[64];
+	wchar_t SrcGUIDW[64];
+	wchar_t DesGUIDW[64];
+	wchar_t pUnicode[256];
+	wstring *pSrc,*pDes;
+
+	COSNxml *pXMLTemp = new COSNxml();
+
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
+		pSrc = new wstring(SrcGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,sizeof(DesGUIDW));
+		pDes = new wstring(DesGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		if(strcmp(MirrorTypeC,"0") == 0)
+		{
+			MirrorTypeB = 0;//volume
+		}
+		else
+		{
+			MirrorTypeB = 1;
+		}
+	}
+	else
+	{
+		delete(pXMLTemp);
+		return EXIT_FAILURE;
+	}
+	delete(pXMLTemp);
+
+	return m_pCopyXML->RemoveMirror(pSrc,pDes,MirrorTypeB);
+}
+
+DWORD COSNRpcServer::OSNRpcGetInitMirrorRate(DWORD pXML)
+{
+	bool MirrorTypeB;
+	char MirrorTypeC[5];
+	char SrcGUIDC[64];
+	char DesGUIDC[64];
+	wchar_t SrcGUIDW[64];
+	wchar_t DesGUIDW[64];
+	wchar_t pUnicode[256];
+	wstring *pSrc,*pDes;
+
+	COSNxml *pXMLTemp = new COSNxml();
+
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
+		pSrc = new wstring(SrcGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,_countof(DesGUIDW));
+		pDes = new wstring(DesGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		if(strcmp(MirrorTypeC,"0") == 0)
+		{
+			MirrorTypeB = 0;//volume
+		}
+		else
+		{
+			MirrorTypeB = 1;
+		}
+	}
+	else
+	{
+		delete(pXMLTemp);
+		return EXIT_FAILURE;
+	}
+	delete(pXMLTemp);
+
+	return 0;//m_pCopyXML->GetInitMirrorRate(pSrc,pDes,MirrorTypeB);
+}
+
+DWORD COSNRpcServer::OSNRpcInitMirror(DWORD pXML)
+{
+	bool MirrorTypeB;
+	char MirrorTypeC[5];
+	char SrcGUIDC[64];
+	char DesGUIDC[64];
+	wchar_t SrcGUIDW[64];
+	wchar_t DesGUIDW[64];
+	wchar_t pUnicode[256];
+	wstring *pSrc,*pDes;
+
+	COSNxml *pXMLTemp = new COSNxml();
+
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
+		pSrc = new wstring(SrcGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,_countof(DesGUIDW));
+		pDes = new wstring(DesGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		if(strcmp(MirrorTypeC,"0") == 0)
+		{
+			MirrorTypeB = 0;//volume
+		}
+		else
+		{
+			MirrorTypeB = 1;
+		}
+	}
+	else
+	{
+		delete(pXMLTemp);
+		return EXIT_FAILURE;
+	}
+	delete(pXMLTemp);
+
+	return m_pCopyXML->InitMirror(pSrc,pDes,MirrorTypeB);
+}
+
+DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
+{
+	bool MirrorTypeB;
+	char MirrorTypeC[5];
+	char SrcGUIDC[64];
+	char DesGUIDC[64];
+	wchar_t SrcGUIDW[64];
+	wchar_t DesGUIDW[64];
+	wchar_t pUnicode[256];
+	wstring *pSrc;
+	wstring *pDes;
+	
+	memset(pUnicode,0,256*sizeof(wchar_t));
+
+	COSNxml *pXMLTemp = new COSNxml();
+	
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
+		pSrc = new wstring(SrcGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,_countof(DesGUIDW));
+		pDes = new wstring(DesGUIDW);
+
+		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		if(strcmp(MirrorTypeC,"0") == 0)
+		{
+			MirrorTypeB = 0;//volume
+		}
+		else
+		{
+			MirrorTypeB = 1;
+		}
+	}
+	else
+	{
+		delete(pXMLTemp);
+		return EXIT_FAILURE;
+	}
+	delete(pXMLTemp);
+
+	return m_pCopyXML->NewMirror(pSrc,pDes,MirrorTypeB);
 }
 
 DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
@@ -354,7 +562,10 @@ DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
 	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
 	{
 		pXMLTemp->LoadFile(pUnicode);
-		pXMLTemp->GetXMLNodeText("streamer","IpAddr");
+
+		pXMLTemp->GetXMLNodeText("streamer","IpAddr",m_ServerIP);
+		m_IsProtected = true;
+		
 		status = EXIT_SUCCESS;
 	}
 	else
@@ -370,18 +581,7 @@ DWORD COSNRpcServer::OSNRpcGetClientInfo()
 {
 	m_pCopyXML->InitializeMembers();
 
-	m_pCopyXML->m_pTempXML->AddXMLElement("Client");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","IsProtected","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","State","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","ClientID","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","Name","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","IpAddr","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","Database","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","DatabaseVersion","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","ManagerServIP","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","SystemType","0");
-	m_pCopyXML->m_pTempXML->AddXMLAttribute("Client","SystemVersion","0");
-
+	m_pCopyXML->RefreshClientXML();
 	m_pCopyXML->RefreshDiskListXML();
 	m_pCopyXML->RefreshVolumeListXML();
 
@@ -400,7 +600,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 		{
 			COSNxml *pXMLTemp = new COSNxml();
 			pXMLTemp->CreateXMLFile("streamer");
-			char hostname[32],ipAddress[32],SysVersion[32]; 
+			char hostname[128],ipAddress[32],SysVersion[64]; 
 
 			dw = OSNRpcGetBasicInfo(hostname,ipAddress,SysVersion);
 			if(EXIT_SUCCESS == dw)
@@ -514,6 +714,105 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 			COSNxml *pXMLTemp = new COSNxml();
 			pXMLTemp->CreateXMLFile("streamer");
 
+			dw = OSNRpcSetMirror((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+			if(EXIT_SUCCESS == dw)
+			{
+				
+			}
+			else
+			{
+				pXMLTemp->AddXMLElement("Error");
+				pXMLTemp->AddXMLAttribute("Error","Errcode","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorsummary","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
+				DWORD size = pXMLTemp->GetXMLText(pXMLText);
+
+				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+				pMsgHeader->dataLength = size;
+			}
+			delete(pXMLTemp);
+		}
+		break;
+
+	case OSN_REMOTE_CMD_REMOVEMIRROR:
+		{
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->CreateXMLFile("streamer");
+
+			dw = OSNRpcRemoveMirror((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+			if(EXIT_SUCCESS == dw)
+			{
+				
+			}
+			else
+			{
+				pXMLTemp->AddXMLElement("Error");
+				pXMLTemp->AddXMLAttribute("Error","Errcode","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorsummary","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
+				DWORD size = pXMLTemp->GetXMLText(pXMLText);
+
+				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+				pMsgHeader->dataLength = size;
+			}
+			delete(pXMLTemp);
+		}
+		break;
+
+	case OSN_REMOTE_CMD_INITMIRTOSERVER:
+		{
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->CreateXMLFile("streamer");
+
+			dw = OSNRpcInitMirror((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+			if(EXIT_SUCCESS == dw)
+			{
+				
+			}
+			else
+			{
+				pXMLTemp->AddXMLElement("Error");
+				pXMLTemp->AddXMLAttribute("Error","Errcode","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorsummary","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
+				DWORD size = pXMLTemp->GetXMLText(pXMLText);
+
+				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+				pMsgHeader->dataLength = size;
+			}
+			delete(pXMLTemp);
+		}
+		break;
+
+	case OSN_REMOTE_CMD_GETINITMIRFROMSERVER:
+		{
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->CreateXMLFile("streamer");
+
+			dw = OSNRpcGetInitMirrorRate((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+			if(EXIT_SUCCESS == dw)
+			{
+				
+			}
+			else
+			{
+				pXMLTemp->AddXMLElement("Error");
+				pXMLTemp->AddXMLAttribute("Error","Errcode","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorsummary","0");
+				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
+				DWORD size = pXMLTemp->GetXMLText(pXMLText);
+
+				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+				pMsgHeader->dataLength = size;
+			}
 			delete(pXMLTemp);
 		}
 		break;

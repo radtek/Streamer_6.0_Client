@@ -1471,7 +1471,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 				 RegistryKey ^pParmeterKey = pRegKey->OpenSubKey(tranDiskroot,true);
 				 if(pParmeterKey != nullptr)
 				 {
-					String^trankey = String::Concat(String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),"Asyn");
+					String^trankey = String::Concat(pMirrorInfo->m_SourceGuid,"Asyn");
 					
 					if(0 == Convert::ToUInt32(pParmeterKey->GetValue(trankey)))
 					{
@@ -1783,7 +1783,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 				 RegistryKey ^pParmeterKey = pRegKey->OpenSubKey(tranDiskroot,true);
 				 if(pParmeterKey != nullptr)
 				 {
-					String^trankey = String::Concat(String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),"Asyn");
+					String^trankey = String::Concat(pMirrorInfo->m_SourceGuid,"Asyn");
 					
 					if(0 == Convert::ToUInt32(pParmeterKey->GetValue(trankey)))
 					{
@@ -2404,13 +2404,13 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 
 					 if(pNewMirror->m_IsCluster==0)
 					 {
-						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pNewMirror->pSourceDriver->m_GUID,"}"),String::Concat("{",pNewMirror->pTargetDriver->m_GUID,"}"),true,2,0);
+						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",pNewMirror->pSourceDriver->m_GUID,pNewMirror->pTargetDriver->m_GUID,true,2,0);
 					 }
 					 else
 					 {
-						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pNewMirror->pSourceDriver->m_GUID,"}"),String::Concat("{",pNewMirror->pTargetDriver->m_GUID,"}"),true,2,1);
+						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",pNewMirror->pSourceDriver->m_GUID,pNewMirror->pTargetDriver->m_GUID,true,2,1);
 						 if(ErrorCode==0)
-						 ErrorCode = SetClusterKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pNewMirror->pSourceDriver->m_GUID,"}"),true,DIRTY,DIRTY);
+						 ErrorCode = SetClusterKey("System\\CurrentControlSet\\Services\\OsnVSS",pNewMirror->pSourceDriver->m_GUID,true,DIRTY,DIRTY);
 					 }
 					 if(ErrorCode!=0)
 					 {
@@ -2545,13 +2545,13 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 
 					 if(pNewMirror->m_IsCluster==0)
 					 {
-						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pNewMirror->pSourceDisk->m_Guid,"}"),String::Concat("{",pNewMirror->pTargetDisk->m_Guid,"}"),true,2,0);
+						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",pNewMirror->pSourceDisk->m_Guid,pNewMirror->pTargetDisk->m_Guid,true,2,0);
 					 }
 					 else
 					 {
-						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pNewMirror->pSourceDisk->m_Guid,"}"),String::Concat("{",pNewMirror->pTargetDisk->m_Guid,"}"),true,2,1);
+						 ErrorCode = SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",pNewMirror->pSourceDisk->m_Guid,pNewMirror->pTargetDisk->m_Guid,true,2,1);
 						 if(ErrorCode==0)
-							 SetClusterKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pNewMirror->pSourceDisk->m_Guid,"}"),true,DIRTY,DIRTY);
+							 SetClusterKey("System\\CurrentControlSet\\Services\\OsnDSS",pNewMirror->pSourceDisk->m_Guid,true,DIRTY,DIRTY);
 					 }
 					 if(ErrorCode!=0)
 					 {
@@ -2909,14 +2909,14 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 
 				 if(pMirrorInfo->m_IsCluster==0)
 				 {
-					 ErrorCode =SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),false,4,0);
+					 ErrorCode =SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,false,4,0);
 				 }
 				 else
 				 {
-					 ErrorCode=SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),false,4,1);
+					 ErrorCode=SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,false,4,1);
 					 if(ErrorCode == 0)
 					 {
-						 SetClusterKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),false,DIRTY,DIRTY);
+						 SetClusterKey("System\\CurrentControlSet\\Services\\OsnVSS",pMirrorInfo->m_SourceGuid,false,DIRTY,DIRTY);
 					 }
 				 }
 				 if(ErrorCode!=0)
@@ -2940,11 +2940,11 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 				 {	
 					 if(pMirrorInfo->m_IsCluster==0)
 					 {
-						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),true,PreviousState,0);
+						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,true,PreviousState,0);
 					 }
 					 else
 					 {
-						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),true,PreviousState,1);
+						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,true,PreviousState,1);
 					 }
 					 MessageBox::Show(String::Concat("É¾³ı¾µÏñ³ö´í ,´úÂë =",ErrorCode.ToString()));
 					 return false;
@@ -3018,14 +3018,14 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 
 				 if(pMirrorInfo->m_IsCluster==0)
 				 {
-					 ErrorCode =SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),false,4,0);
+					 ErrorCode =SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,false,4,0);
 				 }
 				 else
 				 {
-					 ErrorCode=SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),false,4,1);
+					 ErrorCode=SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,false,4,1);
 					 if(ErrorCode ==0)
 					 {
-						 SetClusterKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),false,DIRTY,DIRTY);
+						 SetClusterKey("System\\CurrentControlSet\\Services\\OsnDSS",pMirrorInfo->m_SourceGuid,false,DIRTY,DIRTY);
 					 }
 				 }
 				 if(ErrorCode!=0)
@@ -3051,11 +3051,11 @@ private: System::Windows::Forms::ToolStripMenuItem^  transferMode1ToolStripMenuI
 				 {
 					 if(pMirrorInfo->m_IsCluster==0)
 					 {
-						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),true,PreviousState,0);
+						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,true,PreviousState,0);
 					 }
 					 else
 					 {
-						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),String::Concat("{",pMirrorInfo->m_TargetGuid,"}"),true,PreviousState,1);
+						 SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,true,PreviousState,1);
 					 }
 					 MessageBox::Show(String::Concat("É¾³ı¾µÏñ³ö´í ,´úÂë =",ErrorCode.ToString()));
 					 return false;
@@ -5936,7 +5936,7 @@ private: System::Void transferModeToolStripMenuItem_Click(System::Object^  sende
 
 			 if(pParmeterKey != nullptr)
 			 {
-				 String^trankey = String::Concat(String::Concat("{",Srcguid,"}"),"Asyn");
+				 String^trankey = String::Concat(Srcguid,"Asyn");
 					
 				 if(0 == Convert::ToUInt32(pParmeterKey->GetValue(trankey)))
 				 {
@@ -5997,7 +5997,7 @@ private: System::Void transferMode1ToolStripMenuItem_Click(System::Object^  send
 			 
 			 if(pParmeterKey != nullptr)
 			 {
-				 String^trankey = String::Concat(String::Concat("{",Srcguid,"}"),"Asyn");
+				 String^trankey = String::Concat(Srcguid,"Asyn");
 					
 				 if(0 == Convert::ToUInt32(pParmeterKey->GetValue(trankey)))
 				 {
@@ -6077,7 +6077,7 @@ private: System::Void transferMode1ToolStripMenuItem_Click(System::Object^  send
 			 
 			 if(pParmeterKey != nullptr)
 			 {
-				String^trankey = String::Concat(String::Concat("{",pMirrorInfo->m_SourceGuid,"}"),"Asyn");
+				String^trankey = String::Concat(pMirrorInfo->m_SourceGuid,"Asyn");
 				
 				if(0 == Convert::ToUInt32(pParmeterKey->GetValue(trankey)))
 				{

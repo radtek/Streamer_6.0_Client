@@ -26,6 +26,12 @@
     <ClCompile Include="OSNXml.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="OsnMirrorCopyXML.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NewMirror.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Configure.h">
@@ -56,6 +62,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="OsnMirrorCopyXML.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NewMirror.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
