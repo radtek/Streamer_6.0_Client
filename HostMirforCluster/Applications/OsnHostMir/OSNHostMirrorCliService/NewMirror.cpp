@@ -2,45 +2,69 @@
 #include "atlbase.h"
 #include "..\OsnVolumeCopyApi\OsnVolumeCopyApi.h"
 
-bool CNewMirror::CheckVolIsBootableOrSys(wstring *label)
+DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 {
-	//try
-	//{
+	/*try
+	{*/
+		DWORD dw = OSNInitWMI();
+		if(dw == EXIT_FAILURE)
+		{
+			printf("Init WMI error!\n");
+			return 3;
+		}
 
-	//	wstring *WQL = "Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition";
+		HRESULT hres;
+		IEnumWbemClassObject* pEnumerator = NULL;
+		wchar_t  pWQL[32];
+		swprintf_s(pWQL,_countof(pWQL),L"Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition",label->c_str());
 
-	//	wstring *NewLine = WQL->Replace("%s", label);
+		hres = m_pSvc->ExecQuery(
+			bstr_t("WQL"),
+			pWQL,
+			WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+			NULL,
+			&pEnumerator
+			);
+		if (FAILED(hres))
+		{
+			printf("pSvc->ExecQuery error\n");
+			return 3;               // Program has failed.
+		}
+		IWbemClassObject *pclsObj;
+		ULONG uReturn = 0;
 
-	//	// obtain the disk 
-	//	ManagementObjectSearcher ^DiskPartitionSearcher =
-	//		gcnew ManagementObjectSearcher("root\\CIMV2",
-	//		NewLine);
-	//	wstring *sysvol=(wstring *)System::Environment::SystemDirectory;
-	//	sysvol=sysvol->Substring(0,2);
-	//	bool issysvol=false;
-	//	if(sysvol->Equals(label))
-	//	{
-	//		issysvol=true;
-	//		return  issysvol;
-	//	}
+		/*wstring *sysvol=(wstring *)System::Environment::SystemDirectory;
+		sysvol = sysvol->Substring(0,2);
+		bool issysvol = false;
+		if(sysvol->compare(label) == 0)
+		{
+			issysvol = true;
+			return  issysvol;
+		}*/
 
-	//	ManagementObjectCollection ^DiskCollection = DiskPartitionSearcher->Get();
+		while(pEnumerator)
+		{
+			// 推出下一个对象
+			pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+			if(0 == uReturn)
+			{
+				break;
+			}
 
-	//	System::Collections::IEnumerator	^objEnum1= DiskCollection->GetEnumerator();
-	//	while(objEnum1->MoveNext())
-	//	{
-	//		ManagementObject ^queryObj1=static_cast<ManagementObject ^>(objEnum1->Current);                       
-	//		bool ret=Convert::ToBoolean(queryObj1->GetPropertyValue("Bootable"));
-	//		return issysvol||ret;
-	//	}
-	//	return issysvol;
+			VARIANT vtProp;
+			pclsObj->Get(L"Bootable", 0, &vtProp, 0, 0);
+			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
+			DWORD dw = _wtoi(VolumeLabel->c_str());
+			delete(VolumeLabel);
+			return dw;
+		}
+		return 3;
 	//}
 	//catch(...)
 	//{
 	//	// myEventLog->OSNWriteEventLog(String::Concat("CheckVolIsBootable: ",ex->ToString()),EventLogEntryType::Error,011);
 	//}
-	return false;
-
+	//return false;
 }
 
 DWORD CNewMirror::CheckFileSystem(wstring *LabelName)
@@ -113,38 +137,128 @@ DWORD CNewMirror::WcharToChar(const wchar_t *pWchar,char *pChar,int Length)
 	return EXIT_SUCCESS;
 }
 
+DWORD CNewMirror::OSNInitWMI()
+{
+	HRESULT hres;
+	
+	m_pLoc = 0;
+	hres = CoCreateInstance(
+		CLSID_WbemLocator,            
+		0,
+		CLSCTX_INPROC_SERVER,
+		IID_IWbemLocator, (LPVOID *) &m_pLoc);
+
+	if (FAILED(hres))
+	{
+		printf("CoCreateInstance error\n");
+		//CoUninitialize();
+		return EXIT_FAILURE;       // Program has failed.
+	}
+
+	//使用pLoc连接到” root\cimv2” 并把pSvc的指针也搞定了
+	hres = m_pLoc->ConnectServer(
+		_bstr_t(L"ROOT\\CIMV2"), // WMI namespace
+		NULL,                    // User name
+		NULL,                    // User password
+		0,                       // Locale
+		NULL,                    // Security flags                
+		0,                       // Authority      
+		0,                       // Context object
+		&m_pSvc                    // IWbemServices proxy
+		);                             
+	if (FAILED(hres))
+	{
+		printf("ConnectServer error\n");
+		//m_pLoc->Release();    
+		//CoUninitialize();
+		return EXIT_FAILURE;                // Program has failed.
+	}
+	//已经连接到WMI了
+
+	hres = CoSetProxyBlanket(
+		m_pSvc,                         // the proxy to set
+		RPC_C_AUTHN_WINNT,            // authentication service
+		RPC_C_AUTHZ_NONE,             // authorization service
+		NULL,                         // Server principal name
+		RPC_C_AUTHN_LEVEL_CALL,       // authentication level
+		RPC_C_IMP_LEVEL_IMPERSONATE,  // impersonation level
+		NULL,                         // client identity
+		EOAC_NONE                     // proxy capabilities
+		);
+
+	if (FAILED(hres))
+	{
+		printf("CoSetProxyBlanket error\n");
+		//m_pSvc->Release();
+		//m_pLoc->Release();    
+		//CoUninitialize();
+		return EXIT_FAILURE;               // Program has failed.
+	}
+
+	return EXIT_SUCCESS;
+}
+
 DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 {
 	/*try
-	{
-		wstring *WQL="Select * from Win32_DiskDrive where Index=%s";
-		wstring *newLine=WQL->Replace("%s",index.ToString());
-		ManagementObjectSearcher ^DiskPartitionSearcher =
-			gcnew ManagementObjectSearcher("root\\CIMV2",
-			newLine);
-		ManagementObjectCollection ^DiskCollection = DiskPartitionSearcher->Get();
-
-		System::Collections::IEnumerator	^objEnum1= DiskCollection->GetEnumerator();
-		while(objEnum1->MoveNext())
+	{*/
+		DWORD dw = OSNInitWMI();
+		if(dw == EXIT_FAILURE)
 		{
-			ManagementObject ^queryObj1=static_cast<ManagementObject ^>(objEnum1->Current);                       
-			wstring *ret=Convert::ToString(queryObj1->GetPropertyValue("PNPDeviceID"));
-			if(ret->Contains("EIM"))
+			printf("Init WMI error!\n");
+			return -1;
+		}
+
+		HRESULT hres;
+		IEnumWbemClassObject* pEnumerator = NULL;
+		wchar_t  pWQL[32];
+		swprintf_s(pWQL,_countof(pWQL),L"Select * from Win32_DiskDrive where Index=%s",index);
+
+		hres = m_pSvc->ExecQuery(
+			bstr_t("WQL"),
+			pWQL,
+			WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+			NULL,
+			&pEnumerator
+			);
+		if (FAILED(hres))
+		{
+			printf("pSvc->ExecQuery error\n");
+			return -1;               // Program has failed.
+		}
+		IWbemClassObject *pclsObj;
+		ULONG uReturn = 0;
+
+		while(pEnumerator)
+		{
+			// 推出下一个对象
+			pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+			if(0 == uReturn)
 			{
+				break;
+			}
+
+			VARIANT vtProp;
+			pclsObj->Get(L"PNPDeviceID", 0, &vtProp, 0, 0);
+			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
+
+			if(VolumeLabel->compare(L"EIM") == 0)
+			{
+				delete(VolumeLabel);
 				return 1;
 			}
 			else
 			{
+				delete(VolumeLabel);
 				return 2;
 			}
 		}
-		return 0;
-	}
+		return -1;
+	/*}
 	catch(...)
 	{
 		MessageBox::Show("获取磁盘的提供商信息出错，请稍后重试");
 	}*/
-	return -1;
 }
 
 DWORD CNewMirror::InitalizeDisk(int index)
@@ -185,32 +299,59 @@ DWORD CNewMirror::InitalizeDisk(int index)
 ///1 eim disk 2,don't eim disk ,o get failed
 DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 {
-	//try
-	//{
-	//	wstring *WQL = "Associators of {win32_LogicalDisk='%s'} where resultClass = Win32_DiskPartition";
+	/*try
+	{*/
+		DWORD dw = OSNInitWMI();
+		if(dw == EXIT_FAILURE)
+		{
+			printf("Init WMI error!\n");
+			return -1;
+		}
 
-	//	wstring *NewLine = WQL->Replace("%s", LabelName);
+		HRESULT hres;
+		IEnumWbemClassObject* pEnumerator = NULL;
+		wchar_t  pWQL[32];
+		swprintf_s(pWQL,_countof(pWQL),L"Associators of {win32_LogicalDisk='%s'} where resultClass = Win32_DiskPartition",LabelName->c_str());
 
-	//	// obtain the disk 
-	//	ManagementObjectSearcher ^DiskPartitionSearcher =gcnew ManagementObjectSearcher("root\\CIMV2",NewLine);
+		hres = m_pSvc->ExecQuery(
+			bstr_t("WQL"),
+			pWQL,
+			WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+			NULL,
+			&pEnumerator
+			);
+		if (FAILED(hres))
+		{
+			printf("pSvc->ExecQuery error\n");
+			return -1;               // Program has failed.
+		}
+		IWbemClassObject *pclsObj;
+		ULONG uReturn = 0;
 
-	//	ManagementObjectCollection ^DiskCollection = DiskPartitionSearcher->Get();
+		while(pEnumerator)
+		{
+			// 推出下一个对象
+			pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+			if(0 == uReturn)
+			{
+				break;
+			}
 
-	//	System::Collections::IEnumerator	^objEnum= DiskCollection->GetEnumerator();
-	//	while(objEnum->MoveNext())
-	//	{
-	//		ManagementObject ^queryObj=safe_cast<ManagementObject ^>(objEnum->Current);                       
-	//		UInt32 Index2 = Convert::ToUInt32(queryObj->GetPropertyValue("DiskIndex"));
-	//		return CheckDiskIsEIMDisk(Index2);
-	//	}
-	//}
-	//catch(...)
-	//{
-	//	MessageBox::Show("获取卷的提供商信息失败，请稍后重试");
+			VARIANT vtProp;
+			pclsObj->Get(L"DiskIndex", 0, &vtProp, 0, 0);
+			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.           
+			int Index2 = _wtoi(VolumeLabel->c_str());
+			delete(VolumeLabel);
 
-	//}
-	//return -1;
-	return 1;
+			return CheckDiskIsEIMDisk(Index2);
+		}
+	/*}
+	catch(...)
+	{
+		MessageBox::Show("获取卷的提供商信息失败，请稍后重试");
+
+	}*/
+	return -1;
 }
 void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 {
@@ -255,6 +396,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	if(!isEIMMirror&&2==ret&&2==ret1)
 	{
 		printf("源卷和目标卷都不是EIM卷，不能建镜像关系！");
+		delete(pRegKey);
 		return ;
 	}
 
@@ -279,6 +421,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 		int ret=CheckVolIsEIMVol(this->pTargetVolume->m_VolumeLable);
 		if(-1==ret)
 		{
+			delete(pRegKey);
 			return;
 		}
 		else if(2==ret)
@@ -308,6 +451,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	if(tgtret>1||srcret>1)
 	{
 		printf("源卷和目标卷中有一个卷处于被保护状态或者其他未知状态，请检查是否处于镜像关系中，或者是已经删除镜像关系但要重启后生效");
+		delete(pRegKey);
 		return;
 	}
 
@@ -319,6 +463,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	if(isbootvol)
 	{
 		printf("镜像卷是系统卷或者是启动卷，不能设置为镜像卷，请选择其他卷");
+		delete(pRegKey);
 		return;
 	}
 
@@ -330,6 +475,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	}
 
 	//this->DialogResult =System::Windows::Forms::DialogResult::Yes;
+	delete(pRegKey);
 	return;
 }
 
@@ -372,6 +518,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	if(!isEIMMirror&&2==ret&&2==ret1)
 	{
 		printf("源磁盘和目标磁盘都不是EIM卷，不能建镜像关系！");
+		delete(pRegKey);
 		return ;
 	}
 
@@ -395,6 +542,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 		int ret=CheckDiskIsEIMDisk(this->pTargetDisk->m_DiskIndex);
 		if(-1==ret)
 		{
+			delete(pRegKey);
 			return;
 		}
 		else if(2==ret)
@@ -427,11 +575,13 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	if(tgtret>1||srcret>1)
 	{
 		printf("源卷和目标卷中有一个卷处于被保护状态或者其他未知状态，请检查是否处于镜像关系中，或者是已经删除镜像关系但要重启后生效");
+		delete(pRegKey);
 		return;
 	}
 	if(tgtret!=srcret)
 	{
 		printf("源卷和目标卷一个是MBR磁盘，一个是GPT磁盘，不能创建镜像关系,请重新选择目标卷");
+		delete(pRegKey);
 		return;
 	}
 
@@ -445,6 +595,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 		int ret=InitalizeDisk(this->pTargetDisk->m_DiskIndex);
 		if(1==ret)
 		{
+			delete(pRegKey);
 			return;
 		}
 		else
@@ -472,6 +623,8 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	{
 		printf("镜像磁盘比源磁盘要小");
 	}
+
+	delete(pRegKey);
 
 	return;
 }

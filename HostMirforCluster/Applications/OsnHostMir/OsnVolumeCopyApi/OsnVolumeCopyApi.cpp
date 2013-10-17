@@ -283,7 +283,7 @@ int	__cdecl	OSNGetDiskGUIDByVolume(wchar_t			volumeLabel,		//C, D, E etc
 		{
 			memset(&pDisk,0,sizeof(DISK_INFO));
 			memset(&pDiskEx,0,sizeof(DISK_INFOEX));
-			pDisk.m_DiskIndex=i;
+			pDisk.m_DiskIndex = pDiskExtent->DiskNumber;
 
 			int ErrorCode=OsnGetDisk(&pDisk);
 			if(ErrorCode == 0)

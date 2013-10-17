@@ -18,6 +18,8 @@ public:
 		this->m_pRootElement            = NULL;
 		this->m_pElement                = NULL; 
 		this->m_pAttrNode               = NULL;
+		this->m_pAttrMap                = NULL;
+		this->m_pAttrItem               = NULL;
 		this->m_pNode = NULL, m_pNodeSub = NULL;
 
 		HRESULT hr = m_pDoc.CreateInstance(__uuidof(DOMDocument60)); 
@@ -54,7 +56,8 @@ public:
 	DWORD SaveFile(char *pNodeName);
 
 	DWORD AddXMLAttribute(char *pNodeName,char *pAttributeName,char *pAttributeValue);
-	DWORD AddXMLSubElement(char *pFatName,char *pSubName);
+	DWORD AddXMLDisElement(char *pFatName,char *pSubName);
+	DWORD AddXMLVolElement(char *pFatName,char *pSubName,char *pDiskGuid);
 	DWORD AddXMLElement(char *pNodeName);
 
     MSXML2::IXMLDOMDocumentPtr                  m_pDoc ;                         // xml文档
@@ -64,6 +67,8 @@ public:
     MSXML2::IXMLDOMNodePtr                      m_pNode, m_pNodeSub;         // 节点
     MSXML2::IXMLDOMAttributePtr                 m_pAttrNode;                     // 属性
 	MSXML2::IXMLDOMNodeListPtr                  m_pNodeList;                   //节点链表
+	MSXML2::IXMLDOMNamedNodeMapPtr              m_pAttrMap;  
+    MSXML2::IXMLDOMNodePtr                      m_pAttrItem;  
 };
 
 #endif

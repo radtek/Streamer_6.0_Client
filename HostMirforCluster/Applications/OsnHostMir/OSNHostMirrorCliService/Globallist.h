@@ -63,6 +63,17 @@ class CDiskInfoList :public CGlobalList
 public:
 	CDiskInfoList(unsigned int length):CGlobalList(length){}
 
+	~CDiskInfoList()
+	{
+		CDiskInfo *pDiskInfo = NULL;
+		for(DWORD i=0;i<m_pArrayList->size();i++)
+		{
+			pDiskInfo = (CDiskInfo *)(m_pArrayList->at(i));
+			delete(pDiskInfo);
+		}
+		Clear();
+	}
+
 	CDiskInfo *GetDiskInfo(wstring *guid)
 	{
 		CDiskInfo *pDiskInfo = NULL;
@@ -121,6 +132,17 @@ public:
 class CVolumeInfoList: public CGlobalList
 {
 public: CVolumeInfoList(unsigned int length):CGlobalList(length){}
+
+public: ~CVolumeInfoList()
+		{
+			CVolumeInfo *pVolumeInfo = NULL;
+			for(DWORD i=0;i<m_pArrayList->size();i++)
+			{
+				pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
+				delete(pVolumeInfo);
+			}
+			Clear();
+		}
 
 public: CVolumeInfo * GetVolumeInfo(wstring *guid)
 		{
@@ -200,6 +222,17 @@ public : unsigned __int64 GetBlocksBySignature(wstring *guid)
 class CMirrorInfoList : public CGlobalList
 {
 public:CMirrorInfoList(unsigned int length):CGlobalList(length){}
+
+public:~CMirrorInfoList()
+	   {
+		   CMirrorInfo *pMirrorInfo = NULL;
+		   for(DWORD i=0;i<m_pArrayList->size();i++)
+		   {
+			   pMirrorInfo = (CMirrorInfo *)(m_pArrayList->at(i));
+			   delete(pMirrorInfo);
+		   }
+		   Clear();
+	   }
 
 public:CMirrorInfo* GetMirrorInfo(wstring* Sguid,bool Flag) 
 	   {

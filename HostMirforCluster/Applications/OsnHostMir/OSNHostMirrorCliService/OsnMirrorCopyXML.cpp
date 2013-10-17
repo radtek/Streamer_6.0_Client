@@ -22,7 +22,6 @@ void COsnMirrorCopyXML::InitializeMembers()
 	GetSystemDisksInfo();
 	GetSystemVolumesInfo();
 
-	OSNCloseWMI();
 	//ReadConfigurationFile();
 
 	/*try
@@ -94,15 +93,6 @@ DWORD COsnMirrorCopyXML::OSNInitWMI()
 		//CoUninitialize();
 		return EXIT_FAILURE;               // Program has failed.
 	}
-
-	return EXIT_SUCCESS;
-}
-
-DWORD COsnMirrorCopyXML::OSNCloseWMI()
-{
-	//m_pSvc->Release();
-	//m_pLoc->Release();    
-	//CoUninitialize();
 
 	return EXIT_SUCCESS;
 }
@@ -230,7 +220,7 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 			size=0;
 			char char_guid[128];
 			bool ret=OsnCHeckIsGPTVolume((const char)*(VolumeLabel->c_str()),char_guid);
-			wstring *guid=NULL;
+			wstring *guid = NULL;
 			if(ret)
 			{
 				wchar_t   lpszFileW[256];
@@ -279,9 +269,11 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 
 			CVolumeInfo	*pVolumeInfo = new CVolumeInfo(Free,size,freesize,guid,VolumeLabel,diskguid,(FileSys)Filesys,OnLine);
 
-			if(this->pVolumeList->GetVolumeInfo(guid)== NULL)
+			if(this->pVolumeList->GetVolumeInfo(guid) == NULL)
 				this->pVolumeList->AddItem((DWORD)pVolumeInfo);
 		}
+		
+		delete(VolumeLabe2);
 	}
 	//}
 	/*catch(Exception ^e)
@@ -517,7 +509,9 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 			continue;
 		}
 
-		m_pTempXML->AddXMLSubElement("ClientPhyDisk","PartitionVolume");
+		char DiskGuidC[64];
+		WcharToChar(pVolumeInfo->m_DiskGUID->c_str(),DiskGuidC,sizeof(DiskGuidC));
+		m_pTempXML->AddXMLVolElement("ClientPhyDisk","PartitionVolume",DiskGuidC);
 
 		WcharToChar((wchar_t*)pVolumeInfo->m_Protected.c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("PartitionVolume","IsProtected",temp);
@@ -554,7 +548,7 @@ void COsnMirrorCopyXML::RefreshDiskListXML()
 		char temp[128];
 		CDiskInfo *pDiskInfo = (CDiskInfo *)(this->pDiskList->GetItem(i));
 
-		m_pTempXML->AddXMLSubElement("Client","ClientPhyDisk");
+		m_pTempXML->AddXMLDisElement("Client","ClientPhyDisk");
 
 		WcharToChar((wchar_t*)pDiskInfo->m_Protected.c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("ClientPhyDisk","IsProtected",temp);
@@ -1236,37 +1230,59 @@ DWORD COsnMirrorCopyXML::ReadPreviousState(wstring *Key,bool Flag)
 	}
 }
 
-bool COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
+DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 {
-	//try
-	//{
+	/*try
+	{*/
+		DWORD dw = OSNInitWMI();
+		if(dw == EXIT_FAILURE)
+		{
+			printf("Init WMI error!\n");
+			return 3;
+		}
 
-	//	String ^WQL = "Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition";
+		HRESULT hres;
+		IEnumWbemClassObject* pEnumerator = NULL;
+		wchar_t  pWQL[32];
+		swprintf_s(pWQL,_countof(pWQL),L"Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition",label->c_str());
 
-	//	String ^NewLine = WQL->Replace("%s", label);
+		hres = m_pSvc->ExecQuery(
+			bstr_t("WQL"),
+			pWQL,
+			WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+			NULL,
+			&pEnumerator
+			);
+		if (FAILED(hres))
+		{
+			printf("pSvc->ExecQuery error\n");
+			return 3;               // Program has failed.
+		}
+		IWbemClassObject *pclsObj;
+		ULONG uReturn = 0;
 
-	//	// obtain the disk 
-	//	ManagementObjectSearcher ^DiskPartitionSearcher =
-	//		gcnew ManagementObjectSearcher("root\\CIMV2",
-	//		NewLine);
+		while(pEnumerator)
+		{
+			// 推出下一个对象
+			pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+			if(0 == uReturn)
+			{
+				break;
+			}
 
-	//	ManagementObjectCollection ^DiskCollection = DiskPartitionSearcher->Get();
-
-	//	System::Collections::IEnumerator	^objEnum1= DiskCollection->GetEnumerator();
-	//	while(objEnum1->MoveNext())
-	//	{
-	//		ManagementObject ^queryObj1=static_cast<ManagementObject ^>(objEnum1->Current);                       
-	//		bool ret=Convert::ToBoolean(queryObj1->GetPropertyValue("Bootable"));
-	//		return ret;
-	//	}
-	//	return false;
-	//}
-	//catch(Exception^ ex)
-	//{
-	//	myEventLog->OSNWriteEventLog(String::Concat("CheckVolIsBootable: ",ex->ToString()),EventLogEntryType::Error,011);
-	//}
-	return false;
-
+			VARIANT vtProp;
+			pclsObj->Get(L"Bootable", 0, &vtProp, 0, 0);
+			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
+            DWORD dw = _wtoi(VolumeLabel->c_str());
+			delete(VolumeLabel);
+			return dw;
+		}
+		return false;
+	/*}
+	catch(Exception^ ex)
+	{
+		myEventLog->OSNWriteEventLog(String::Concat("CheckVolIsBootable: ",ex->ToString()),EventLogEntryType::Error,011);
+	}*/
 }
 
 DWORD COsnMirrorCopyXML::NewVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid)
@@ -1419,13 +1435,7 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 			printf("源盘或目标盘没有初始化，请初始化！");
 			return 1;
 		}
-
-		//MirrorInfo.m_SourceVolume.MBP_VolumeID.m_DiskSignature = pNewMirror->pSourceDisk->m_DiskSignature;
-		// MirrorInfo.m_SourceVolume.MBP_VolumeID.m_BlockOffset = 0;
-
-		//MirrorInfo.m_TargetVolume.MBP_VolumeID.m_DiskSignature= pNewMirror->pTargetDisk->m_DiskSignature;
-		// MirrorInfo.m_TargetVolume.MBP_VolumeID.m_BlockOffset = 0;
-
+		delete(ddGuid);
 
 		unsigned int ErrorCode;
 		if(pNewMirror->m_IsCluster==0)
@@ -1448,9 +1458,6 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 
 		pNewMirror->pTargetDisk->m_Role = Mirror_Target;
 		pNewMirror->pSourceDisk->m_Role = Mirror_Source;
-
-		//String ^pSourceString = pNewMirror->pSourceDisk->m_DiskSignature.ToString("X8");
-		//String ^pTargetString = pNewMirror->pTargetDisk->m_DiskSignature.ToString("X8");
 
 		char pSou[64];
 		char pDes[64];
@@ -1476,6 +1483,8 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 
 		this->pDiskMirrorList->AddItem((DWORD)pMirrorInfo);
 		WriteConfigurationFile();
+
+		delete(pNewMirror);
 
 		return 0;
 	/*}

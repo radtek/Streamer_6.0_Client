@@ -410,7 +410,13 @@ DWORD COSNRpcServer::OSNRpcRemoveMirror(DWORD pXML)
 	}
 	delete(pXMLTemp);
 
-	return m_pCopyXML->RemoveMirror(pSrc,pDes,MirrorTypeB);
+	DWORD dw = m_pCopyXML->RemoveMirror(pSrc,pDes,MirrorTypeB);
+
+	delete(pXMLTemp);
+	delete(pSrc);
+	delete(pDes);
+
+	return dw;
 }
 
 DWORD COSNRpcServer::OSNRpcGetInitMirrorRate(DWORD pXML)
@@ -453,7 +459,10 @@ DWORD COSNRpcServer::OSNRpcGetInitMirrorRate(DWORD pXML)
 		delete(pXMLTemp);
 		return EXIT_FAILURE;
 	}
+	
 	delete(pXMLTemp);
+	delete(pSrc);
+	delete(pDes);
 
 	return 0;//m_pCopyXML->GetInitMirrorRate(pSrc,pDes,MirrorTypeB);
 }
@@ -498,9 +507,14 @@ DWORD COSNRpcServer::OSNRpcInitMirror(DWORD pXML)
 		delete(pXMLTemp);
 		return EXIT_FAILURE;
 	}
-	delete(pXMLTemp);
 
-	return m_pCopyXML->InitMirror(pSrc,pDes,MirrorTypeB);
+	DWORD dw = m_pCopyXML->InitMirror(pSrc,pDes,MirrorTypeB);
+
+	delete(pXMLTemp);
+	delete(pSrc);
+	delete(pDes);
+
+	return dw;
 }
 
 DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
@@ -546,9 +560,14 @@ DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
 		delete(pXMLTemp);
 		return EXIT_FAILURE;
 	}
-	delete(pXMLTemp);
 
-	return m_pCopyXML->NewMirror(pSrc,pDes,MirrorTypeB);
+	DWORD dw = m_pCopyXML->NewMirror(pSrc,pDes,MirrorTypeB);
+
+	delete(pXMLTemp);
+	delete(pSrc);
+	delete(pDes);
+
+	return dw;
 }
 
 DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)

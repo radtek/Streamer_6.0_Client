@@ -2,6 +2,8 @@
 #include "MirrorUIConfigure.h"
 #include "Globallist.h"
 #include <vector>
+#include <Wbemidl.h>
+#include "COMDEF.H"
 //#include "MyClusApi.h"
 
 class CNewMirror
@@ -19,6 +21,9 @@ public:
 	wstring               *m_ClusterResourceName;
 	std::vector<DWORD>    *arraylist;
 	BOOLEAN               bNoClusterflag;
+
+	IWbemServices         *m_pSvc;
+	IWbemLocator          *m_pLoc;
 
 public:
 	CNewMirror(CVolumeInfo *pVolumeInfo,CVolumeInfoList *pVolumeInfoList,INSTALLTYPE Ty,
@@ -55,14 +60,22 @@ public:
 		arraylist = new vector<DWORD> (0);
 	}
 
-	bool  CheckVolIsBootableOrSys(wstring *label);
+	~CNewMirror()
+	{
+		arraylist->clear();
 
+		m_pSvc->Release();
+		m_pLoc->Release();   
+	}
+
+	DWORD CheckVolIsBootableOrSys(wstring *label);
 	DWORD CheckFileSystem(wstring *LabelName);
 	DWORD CheckDiskIsEIMDisk(int index);
 	DWORD InitalizeDisk(int index);
 	DWORD CheckVolIsEIMVol(wstring *LabelName);
 	DWORD CharToWchar(const char *pChar,wchar_t *pWchar,int Length);
 	DWORD WcharToChar(const wchar_t *pWchar,char *pChar,int Length);
+	DWORD OSNInitWMI();
 
 	void  VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid);
 	void  DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid);

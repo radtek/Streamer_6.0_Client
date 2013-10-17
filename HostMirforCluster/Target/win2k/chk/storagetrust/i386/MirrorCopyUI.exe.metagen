@@ -1,0 +1,194 @@
+  VolumeCopyUI.About.resources - Embedded, ContainedInManifestFile, 
+  VolumeCopyUI.AccountLogin.resources - Embedded, ContainedInManifestFile, 
+  VolumeCopyUI.ClusterResourceName.resources - Embedded, ContainedInManifestFile, 
+  VolumeCopyUI.NewMirror.resources - Embedded, ContainedInManifestFile, 
+  VolumeCopyUI.OsnMirrorCopyUI.resources - Embedded, ContainedInManifestFile, 
+  VolumeCopyUI.SetClusterIP.resources - Embedded, ContainedInManifestFile, 
+  VolumeCopyUI.Setting.resources - Embedded, ContainedInManifestFile, 
+ImageRuntimeVersion: v4.0.30319
+Assembly MirrorCopyUI, Version=1.0.*, Culture=Invariant Language (Invariant Country): 
+	hash=SHA1, flags=PublicKey
+Assembly mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
+	hash=None, flags=None
+Assembly System.Management, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
+	hash=None, flags=None
+Assembly System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly Microsoft.VisualC, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
+	hash=None, flags=None
+Class VolumeCopyUI.CDiskInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(UInt32, System.String, UInt64, UInt64): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    UInt32 m_DiskIndex : Public
+    System.String m_Guid : Public
+    UInt64 m_DiskSize : Public
+    UInt64 m_FreeSpace : Public
+    UInt64 m_Role : Public
+Class VolumeCopyUI.CDriverInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(System.String, UInt64, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_VolumeLable : Public
+    UInt64 m_DriverSize : Public
+    System.String m_GUID : Public
+    VolumeCopyUI.DriverRole m_Role : Public
+Class VolumeCopyUI.CMirrorInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(System.String, System.String, UInt32, UInt32, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_SourceGuid : Public
+    System.String m_TargetGuid : Public
+    VolumeCopyUI.MirrorState m_State : Public
+    UInt32 m_EIMMode : Public
+    UInt32 m_IsCluster : Public
+    System.String m_ClusterResourceName : Public
+Class VolumeCopyUI.OSNAccount: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String Admin : Public
+    System.String Pass : Public
+Class VolumeCopyUI.DatabaseInformation: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(VolumeCopyUI.DATABASE_TYPE, Boolean, System.String, VolumeCopyUI.OSNAccount, Boolean): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    Boolean IsHave : Public
+    VolumeCopyUI.DATABASE_TYPE Type : Public
+    System.String volumeLabel : Public
+    VolumeCopyUI.OSNAccount AdminAccount : Public
+    Boolean IsForceCDP : Public
+    System.String Instance : Public
+Class VolumeCopyUI.CDPArg: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String argstr : Public
+    UInt32 EIMMode : Public
+    System.String guid : Public
+Class VolumeCopyUI.About: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Windows.Forms.Form
+    Void .ctor(VolumeCopyUI.INSTALLTYPE): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+Class VolumeCopyUI.ClusterResourceName: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Windows.Forms.Form
+    Void .ctor(System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String ResourceName : Public
+    System.Collections.ArrayList arraylist : Public
+Class VolumeCopyUI.CGlobalList: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(UInt32): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    Int32 m_Length IsConst : Public
+    System.Collections.ArrayList m_pArrayList : Public
+  Methods:
+    GetLength(): PrivateScope, Public, HideBySig
+    GetItem(Int32): PrivateScope, Public, HideBySig
+    AddItem(Object): PrivateScope, Public, HideBySig
+    RemoveItem(Object): PrivateScope, Public, HideBySig
+    Clear(): PrivateScope, Public, HideBySig
+Class VolumeCopyUI.CDiskInfoList: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :VolumeCopyUI.CGlobalList
+    Void .ctor(UInt32): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Methods:
+    GetDiskInfo(String): PrivateScope, Public, HideBySig
+    GetDiskByIndex(UInt32): PrivateScope, Public, HideBySig
+    HideDriver(String): PrivateScope, Public, HideBySig
+Class VolumeCopyUI.CDriverInfoList: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :VolumeCopyUI.CGlobalList
+    Void .ctor(UInt32): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Methods:
+    GetDriverInfo(String): PrivateScope, Public, HideBySig
+    GetDriverInfoByLabel(String): PrivateScope, Public, HideBySig
+    GetDriverInfoByString(String): PrivateScope, Public, HideBySig
+    CheckDriverMirrored(String): PrivateScope, Public, HideBySig
+    GetBlocksBySignature(String): PrivateScope, Public, HideBySig
+Class VolumeCopyUI.CMirrorInfoList: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :VolumeCopyUI.CGlobalList
+    Void .ctor(UInt32): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Methods:
+    GetMirrorInfo(String, String): PrivateScope, Public, HideBySig
+    GetMirrorInfo(String, Boolean(HasFieldMarshal)): PrivateScope, Public, HideBySig
+    GetDiskMirrorInfo(String, Boolean(HasFieldMarshal)): PrivateScope, Public, HideBySig
+Class VolumeCopyUI.CNewMirror: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Windows.Forms.Form
+    Void .ctor(VolumeCopyUI.CDiskInfo, VolumeCopyUI.CDiskInfoList, VolumeCopyUI.CDriverInfoList): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(VolumeCopyUI.CDriverInfo, VolumeCopyUI.CDriverInfoList, VolumeCopyUI.INSTALLTYPE, VolumeCopyUI.CDiskInfoList): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    VolumeCopyUI.CDriverInfo pSourceDriver : Public
+    VolumeCopyUI.CDriverInfo pTargetDriver : Public
+    VolumeCopyUI.CDriverInfoList pSystemDriverList : Public
+    VolumeCopyUI.CDiskInfo pSourceDisk : Public
+    VolumeCopyUI.CDiskInfo pTargetDisk : Public
+    VolumeCopyUI.CDiskInfoList pSystemDiskList : Public
+    VolumeCopyUI.INSTALLTYPE Type : Public
+    UInt32 m_EIMMode : Public
+    UInt32 m_IsCluster : Public
+    System.String m_ClusterResourceName : Public
+    System.Collections.ArrayList arraylist : Public
+    Byte bNoClusterflag : Public
+Class VolumeCopyUI.SetClusterIP: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Windows.Forms.Form
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    UInt32 ipOne IsLong : Public
+    UInt32 ipTwo IsLong : Public
+Class VolumeCopyUI.Setting: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Windows.Forms.Form
+    Void .ctor(VolumeCopyUI.INSTALLTYPE): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    UInt32 BitSize : Public
+    UInt32 InitIO : Public
+    UInt32 AutoInit : Public
+    UInt32 DeleteFlag : Public
+    UInt32 ContinueInit : Public
+    UInt32 DiskBitSize : Public
+    UInt32 DiskInitIO : Public
+    UInt32 DiskAutoInit : Public
+    UInt32 DiskDeleteFlag : Public
+    UInt32 DiskContinueInit : Public
+    VolumeCopyUI.INSTALLTYPE Type : Public
+Class VolumeCopyUI.CHostMirrorLog: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Methods:
+    CreateEventLog(String, String): PrivateScope, Public, HideBySig
+    OpenLogFile(): PrivateScope, Public, HideBySig
+    CloseLogFile(): PrivateScope, Public, HideBySig
+    OsnHostMirrorLog(String): PrivateScope, Public, HideBySig
+    OSNWriteEventLog(String, EventLogEntryType, Int32): PrivateScope, Public, HideBySig
+    OSNWriteEventLog(String, String, String, EventLogEntryType, Int32, Int16): PrivateScope, Public, HideBySig
+Class VolumeCopyUI.MessageBoxShow: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Windows.Forms.Form
+    Void .ctor(System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+Class VolumeCopyUI.OsnMirrorCopyUI: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Windows.Forms.Form
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_strOSVersion : Public
+    System.String ImagePath : Public
+    System.String computerName : Public
+    System.String AdminName : Public
+    System.String AdminPass : Public
+    System.String MysqlAdmin : Public
+    System.String MysqlPass : Public
+    VolumeCopyUI.CHostMirrorLog myEventLog : Public
+    System.Net.IPAddress LocalIPAddress : Public
+    System.Net.IPHostEntry hostInfo : Public
+    VolumeCopyUI.INSTALLTYPE m_InstallType : Public
+    VolumeCopyUI.CMirrorInfoList pVolumeMirrorList : Public
+    VolumeCopyUI.CMirrorInfoList pDiskMirrorList : Public
+    VolumeCopyUI.CDriverInfoList pDriverList : Public
+    VolumeCopyUI.CDiskInfoList pDiskList : Public
+    System.String m_strVSSParaRegPath : Public
+Class VolumeCopyUI.OsnMirrorCopyUI+CreateCDPScheduleDelegate: AutoLayout, AnsiClass, Class, NestedPublic, Sealed, BeforeFieldInit
+  :System.MulticastDelegate
+    Void .ctor(System.Object, IntPtr): PrivateScope, Public, SpecialName, RTSpecialName
+  Methods:
+    Invoke(String, String): PrivateScope, Public, Final, Virtual, VtableLayoutMask
+    BeginInvoke(String, String, AsyncCallback, Object): PrivateScope, Public, Final, Virtual, VtableLayoutMask
+    EndInvoke(IAsyncResult): PrivateScope, Public, Final, Virtual, VtableLayoutMask

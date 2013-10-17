@@ -18,7 +18,7 @@ public:
 	CMirrorInfoList *pDiskMirrorList;
 	CVolumeInfoList *pVolumeList;
 	CDiskInfoList   *pDiskList;
-	wstring         *ImagePath;
+	wstring         *ImagePath;  //delete
 
 	IWbemServices *m_pSvc;
 	IWbemLocator  *m_pLoc;
@@ -58,7 +58,6 @@ public:
 	void COsnMirrorCopyXML::WriteConfigurationFile();
 
 	DWORD COsnMirrorCopyXML::OSNInitWMI();
-	DWORD COsnMirrorCopyXML::OSNCloseWMI();
 	DWORD COsnMirrorCopyXML::CharToWchar(const char *pChar,wchar_t *pWchar,int Length);
 	DWORD COsnMirrorCopyXML::WcharToChar(const wchar_t *pWchar,char *pChar,int Length);
 	DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool MirrorType);
@@ -69,8 +68,8 @@ public:
 	DWORD COsnMirrorCopyXML::SetRegistryKey(char *ServiceKeyName,char *SourceString,char *TargetString,bool Flag,int State,int IsCluster);
 	DWORD COsnMirrorCopyXML::ReadPreviousState(wstring *Key,bool Flag);
 	DWORD COsnMirrorCopyXML::CheckFileSystem(wstring *LabelName);
-	
-	bool  COsnMirrorCopyXML::CheckVolIsBootable(wstring *label);
+	DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label);
+
 	bool  COsnMirrorCopyXML::DeleteVolumeMirror(wstring *strSrcguid,wstring *strDesguid,bool MirrorType);
 	bool  COsnMirrorCopyXML::DeleteDiskMirror(wstring *strSrcguid,wstring *strDesguid,bool MirrorType);
 	void  COsnMirrorCopyXML::InitializeVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid,INIT_TYPE type);

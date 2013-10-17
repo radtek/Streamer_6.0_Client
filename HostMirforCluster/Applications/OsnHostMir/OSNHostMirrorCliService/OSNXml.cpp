@@ -50,7 +50,7 @@ DWORD  COSNxml::AddXMLAttribute(char *pNodeName,char *pAttributeName,char *pAttr
 	return EXIT_SUCCESS;
 }
 
-DWORD  COSNxml::AddXMLSubElement(char *pFatName,char *pSubName)
+DWORD  COSNxml::AddXMLDisElement(char *pFatName,char *pSubName)
 {
 	m_pNodeList = m_pRootElement->getElementsByTagName((_bstr_t)(char*)pFatName);
 	if(m_pNodeList->Getlength() == 0)
@@ -68,6 +68,35 @@ DWORD  COSNxml::AddXMLSubElement(char *pFatName,char *pSubName)
     m_pNode->appendChild(m_pNodeSub);
 
 	return EXIT_SUCCESS;
+}
+
+DWORD  COSNxml::AddXMLVolElement(char *pFatName,char *pSubName,char *pDiskGuid)
+{
+	_variant_t  variantValue;
+
+	m_pNodeList = m_pRootElement->getElementsByTagName((_bstr_t)(char*)pFatName);
+	if(m_pNodeList->Getlength() == 0)
+	{
+		return EXIT_FAILURE;
+	}
+	
+	for(int i=0;i<m_pNodeList->Getlength();i++)
+	{
+		m_pNode = m_pNodeList->Getitem(i);
+		m_pNode->get_attributes(&m_pAttrMap);
+		m_pAttrMap->get_item(3,&m_pAttrItem);
+		m_pAttrItem->get_nodeTypedValue(&variantValue);   
+
+		if(strcmp(pDiskGuid,(char *)(_bstr_t)variantValue) == 0)
+		{
+			m_pNodeSub = m_pDoc->createNode((_variant_t)(long)MSXML2::NODE_ELEMENT, (_bstr_t)(char*)pSubName, (_bstr_t)(char*)"");
+			m_pNode->appendChild(m_pNodeSub);
+
+			return EXIT_SUCCESS;;
+		}
+	}
+
+	return EXIT_FAILURE;
 }
 
 DWORD COSNxml::CreateXMLFile(char *pRootName)

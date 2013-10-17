@@ -125,6 +125,12 @@ public:
 		m_DiskStyle = style;
 		m_DiskState = Inited;
 	}
+
+	~CDiskInfo()
+	{
+		delete(m_Guid);
+		delete(m_DiskOEM);
+	}
 };
 
 class CVolumeInfo
@@ -160,6 +166,13 @@ public:
 		m_FileSys       = filesys;
 		m_VolumeState   = state;
 	}
+
+	~CVolumeInfo()
+	{
+		delete(m_GUID);
+		delete(m_VolumeLable);
+		delete(m_DiskGUID);
+	}
 };
 
 class CMirrorInfo
@@ -183,6 +196,11 @@ public:
 		m_IsCluster = isCluster;
 		m_ClusterResourceName = clusterResourceName;
 	}
+
+	~CMirrorInfo()
+	{
+		delete(m_ClusterResourceName);
+	}
 };
 
 class OSNAccount
@@ -199,6 +217,12 @@ public:
     {
 		Admin = name;
         Pass = pass;
+	}
+
+	~OSNAccount()
+	{
+		delete(Admin);
+		delete(Pass);
 	}
 };
 
@@ -225,6 +249,12 @@ public:
         IsForceCDP = forceCDP;
 		Instance=NULL;
     }
+
+	~DatabaseInformation()
+	{
+		delete(Instance);
+		delete(AdminAccount);
+	}
 };
 
 class CDPArg
