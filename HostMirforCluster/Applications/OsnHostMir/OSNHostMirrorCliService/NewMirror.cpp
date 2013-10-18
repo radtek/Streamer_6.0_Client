@@ -6,15 +6,19 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 {
 	/*try
 	{*/
-		DWORD dw = OSNInitWMI();
+		IWbemServices          *m_pSvc = NULL;
+		IWbemLocator           *m_pLoc = NULL;
+		IEnumWbemClassObject   *pEnumerator = NULL;
+
+		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
-			return 3;
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			return -1;
 		}
 
 		HRESULT hres;
-		IEnumWbemClassObject* pEnumerator = NULL;
 		wchar_t  pWQL[32];
 		swprintf_s(pWQL,_countof(pWQL),L"Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition",label->c_str());
 
@@ -28,6 +32,7 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 		if (FAILED(hres))
 		{
 			printf("pSvc->ExecQuery error\n");
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return 3;               // Program has failed.
 		}
 		IWbemClassObject *pclsObj;
@@ -56,8 +61,10 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
 			DWORD dw = _wtoi(VolumeLabel->c_str());
 			delete(VolumeLabel);
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return dw;
 		}
+		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 		return 3;
 	//}
 	//catch(...)
@@ -137,7 +144,7 @@ DWORD CNewMirror::WcharToChar(const wchar_t *pWchar,char *pChar,int Length)
 	return EXIT_SUCCESS;
 }
 
-DWORD CNewMirror::OSNInitWMI()
+DWORD CNewMirror::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 {
 	HRESULT hres;
 	
@@ -198,19 +205,45 @@ DWORD CNewMirror::OSNInitWMI()
 	return EXIT_SUCCESS;
 }
 
+DWORD CNewMirror::OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator)
+{
+	if(m_pSvc != NULL)
+	{
+		m_pSvc->Release();
+		m_pSvc = NULL;
+	}
+
+	if(m_pLoc != NULL)
+	{
+		m_pLoc->Release();
+		m_pLoc = NULL;
+	}
+
+	if(pEnumerator != NULL)
+	{
+		pEnumerator->Release();
+		pEnumerator = NULL;
+	}
+	return EXIT_SUCCESS;
+}
+
 DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 {
 	/*try
 	{*/
-		DWORD dw = OSNInitWMI();
+		IWbemServices         *m_pSvc = NULL;
+		IWbemLocator          *m_pLoc = NULL;
+		IEnumWbemClassObject* pEnumerator = NULL;
+
+		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return -1;
 		}
 
 		HRESULT hres;
-		IEnumWbemClassObject* pEnumerator = NULL;
 		wchar_t  pWQL[32];
 		swprintf_s(pWQL,_countof(pWQL),L"Select * from Win32_DiskDrive where Index=%s",index);
 
@@ -224,6 +257,7 @@ DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 		if (FAILED(hres))
 		{
 			printf("pSvc->ExecQuery error\n");
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return -1;               // Program has failed.
 		}
 		IWbemClassObject *pclsObj;
@@ -245,14 +279,17 @@ DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 			if(VolumeLabel->compare(L"EIM") == 0)
 			{
 				delete(VolumeLabel);
+				OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 				return 1;
 			}
 			else
 			{
 				delete(VolumeLabel);
+				OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 				return 2;
 			}
 		}
+		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 		return -1;
 	/*}
 	catch(...)
@@ -301,15 +338,19 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 {
 	/*try
 	{*/
-		DWORD dw = OSNInitWMI();
+		IWbemServices *m_pSvc = NULL;
+		IWbemLocator  *m_pLoc = NULL;
+		IEnumWbemClassObject* pEnumerator = NULL;
+
+		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return -1;
 		}
 
 		HRESULT hres;
-		IEnumWbemClassObject* pEnumerator = NULL;
 		wchar_t  pWQL[32];
 		swprintf_s(pWQL,_countof(pWQL),L"Associators of {win32_LogicalDisk='%s'} where resultClass = Win32_DiskPartition",LabelName->c_str());
 
@@ -322,6 +363,7 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 			);
 		if (FAILED(hres))
 		{
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			printf("pSvc->ExecQuery error\n");
 			return -1;               // Program has failed.
 		}
@@ -343,7 +385,8 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 			int Index2 = _wtoi(VolumeLabel->c_str());
 			delete(VolumeLabel);
 
-			return CheckDiskIsEIMDisk(Index2);
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			return CheckDiskIsEIMDisk(Index2); 
 		}
 	/*}
 	catch(...)
@@ -351,6 +394,7 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 		MessageBox::Show("获取卷的提供商信息失败，请稍后重试");
 
 	}*/
+	OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 	return -1;
 }
 void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
@@ -388,6 +432,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 				isEIMMirror = true;
 			}
 		}
+		pRegKey->Close();
 	}
 
 	int ret=CheckVolIsEIMVol(this->pTargetVolume->m_VolumeLable);
@@ -459,6 +504,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	{
 		printf("镜像卷比源卷小");
 	}
+
 	int isbootvol=CheckVolIsBootableOrSys(this->pTargetVolume->m_VolumeLable);
 	if(isbootvol)
 	{
@@ -474,7 +520,6 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 		printf("镜像卷已经有文件系统存在");
 	}
 
-	//this->DialogResult =System::Windows::Forms::DialogResult::Yes;
 	delete(pRegKey);
 	return;
 }
@@ -511,6 +556,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 				isEIMMirror = true;
 			}
 		}
+		pRegKey->Close();
 	}
 
 	int ret=CheckDiskIsEIMDisk(this->pTargetDisk->m_DiskIndex);
@@ -540,7 +586,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	if(2==this->m_EIMMode)//target
 	{
 		int ret=CheckDiskIsEIMDisk(this->pTargetDisk->m_DiskIndex);
-		if(-1==ret)
+		if(-1 == ret)
 		{
 			delete(pRegKey);
 			return;
@@ -593,7 +639,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	if(this->pTargetDisk->m_Guid->compare(L"00000000-0000-0000-0000-000000000000"))//没有初始化，需要执行初始化操作
 	{
 		int ret=InitalizeDisk(this->pTargetDisk->m_DiskIndex);
-		if(1==ret)
+		if(1 == ret)
 		{
 			delete(pRegKey);
 			return;

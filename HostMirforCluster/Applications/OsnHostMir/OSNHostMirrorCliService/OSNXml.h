@@ -20,7 +20,8 @@ public:
 		this->m_pAttrNode               = NULL;
 		this->m_pAttrMap                = NULL;
 		this->m_pAttrItem               = NULL;
-		this->m_pNode = NULL, m_pNodeSub = NULL;
+		this->m_pNode                   = NULL;
+		this->m_pNodeSub                = NULL;
 
 		HRESULT hr = m_pDoc.CreateInstance(__uuidof(DOMDocument60)); 
 		if (FAILED(hr))
@@ -29,19 +30,19 @@ public:
 		}
 	}
 
-	//virtual ~COSNxml()
-	//{
-	//	this->m_pDoc                    = NULL; 
-	//    this->m_pProInstruction         = NULL; 
-	//	this->m_pComment                = NULL; 
-	//	this->m_pRootElement            = NULL;
-	//	this->m_pElement                = NULL; 
-	//	this->m_pAttrNode               = NULL;
-	//	this->m_pNode                   = NULL;
-	//	this->m_pNodeSub                = NULL;
-
-	//	//CoUninitialize();
-	//}
+	~COSNxml()
+	{
+		this->m_pDoc                    = NULL; 
+	    this->m_pProInstruction         = NULL; 
+		this->m_pComment                = NULL; 
+		this->m_pRootElement            = NULL;
+		this->m_pElement                = NULL; 
+		this->m_pAttrNode               = NULL;
+		this->m_pAttrMap                = NULL;
+		this->m_pAttrItem               = NULL;
+		this->m_pNode                   = NULL;
+		this->m_pNodeSub                = NULL;
+	}
 
 public:
 	DWORD CreateXMLFile(char *pRootName);

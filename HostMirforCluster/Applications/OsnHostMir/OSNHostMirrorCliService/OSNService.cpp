@@ -471,7 +471,6 @@ LONG COSNService:: GetExePath(char * pPath, unsigned int &dwSize)
 
 BOOL COSNService::OnInit()
 {
-	CRegKey	aRegKey;
 	unsigned int	size = 256;
 
 

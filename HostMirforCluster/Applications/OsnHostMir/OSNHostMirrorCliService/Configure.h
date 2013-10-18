@@ -109,58 +109,6 @@ typedef struct HB_MESSAGE_HEADER
 	char			initiatorWWN[OSN_HBMAX_PASSWORD];
 } HB_MESSAGE_HEADER, *PHB_MESSAGE_HEADER;
 
-//typedef struct HC_WINDOWS_ATTRIBUTE
-//{
-// IsProtected  			//客户端中是否有被保护的磁盘
-//  State  						//客户端在线状
-//  ClientID  				//客户端ID
-//  Name   				//客户端名字
-//  IpAddr  			//IP地址
-//  Database				//数据库类型
-//  DatabaseVersion 		//数据库版本
-//  ManagerServIP 	//被管理的服务器IP
-//  SystemType  				//系统类型
-//} HC_WINDOWS_ATTRIBUTE,*PHC_WINDOWS_ATTRIBUTE;
-//
-//typedef struct HC_VOLUME_ATTRIBUTE
-//{
-//	            IsProtected[6];  				//分区卷是否已被保护
-//        Size;  					//卷容量（MB）
-//        UsedSize;  				//已用容量（MB）
-//    ClientID; 					//客户端ID
-//    GUID;  				//分区卷GUID
-//    Index;  					//盘符（C： D：）
-//    InPhyDiskGuid; 	 	//所在硬盘GUID
-//    FileSys;  				//文件系统
-//	State; 
-//} HC_VOLUME_ATTRIBUTE,*PHC_VOLUME_ATTRIBUTE;
-//
-//typedef struct HC_DISK_ATTRIBUTE
-//{
-//	IsProtected 				//磁盘是否被保护
-//      Size				//磁盘容量大小（MB）
-//      Index 					//磁盘索引
-//      GUID= 		//磁盘的GUID
-//      OEM= 						//磁盘厂商
-//      ClientID 					//磁盘所在客户端ID
-//      Format 					//磁盘格式
-//      Style					//磁盘类型
-//      State					//磁盘状态
-//} HC_DISK_ATTRIBUTE,*PHC_DISK_ATTRIBUTE;
-//
-//typedef struct HC_CHANNEL_ATTRIBUTE
-//{
-//	Name  			//通道名
-//      GroupName 		//通道组名
-//      ClientID 			//所在客户端ID
-//      IPAddr 		//IP地址
-//      TargetWWN  		//目标WWN
-//      InitiatorWWN   	//发起者WWN
-//      IQN  			//IQN号
-//      ChannelType             //通道类型
-//} HC_CHANNEL_ATTRIBUTE,*PHC_CHANNEL_ATTRIBUTE;
-
-
 #define OSNRPC_HBCMD_ASK				0x01
 #define OSNRPC_HBCMD_RESPONSE			0x02
 

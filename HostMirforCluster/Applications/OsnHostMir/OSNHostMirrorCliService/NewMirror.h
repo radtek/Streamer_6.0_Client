@@ -22,9 +22,6 @@ public:
 	std::vector<DWORD>    *arraylist;
 	BOOLEAN               bNoClusterflag;
 
-	IWbemServices         *m_pSvc;
-	IWbemLocator          *m_pLoc;
-
 public:
 	CNewMirror(CVolumeInfo *pVolumeInfo,CVolumeInfoList *pVolumeInfoList,INSTALLTYPE Ty,
 		CDiskInfoList *pDiskInfoList)
@@ -63,9 +60,6 @@ public:
 	~CNewMirror()
 	{
 		arraylist->clear();
-
-		m_pSvc->Release();
-		m_pLoc->Release();   
 	}
 
 	DWORD CheckVolIsBootableOrSys(wstring *label);
@@ -75,7 +69,8 @@ public:
 	DWORD CheckVolIsEIMVol(wstring *LabelName);
 	DWORD CharToWchar(const char *pChar,wchar_t *pWchar,int Length);
 	DWORD WcharToChar(const wchar_t *pWchar,char *pChar,int Length);
-	DWORD OSNInitWMI();
+	DWORD OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc);
+	DWORD OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator);
 
 	void  VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid);
 	void  DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid);

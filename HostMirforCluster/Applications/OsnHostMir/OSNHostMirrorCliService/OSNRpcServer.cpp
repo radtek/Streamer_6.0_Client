@@ -365,6 +365,7 @@ DWORD COSNRpcServer::OSNRpcSetServiceInfo()
 {
 	m_IsProtected = false;
 	memset(m_ServerIP,0,sizeof(m_ServerIP));
+	memset(m_pCopyXML->ClientID,0,sizeof(m_pCopyXML->ClientID));
 	return EXIT_SUCCESS;
 }
 
@@ -584,6 +585,7 @@ DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
 
 		pXMLTemp->GetXMLNodeText("streamer","IpAddr",m_ServerIP);
 		m_IsProtected = true;
+		m_pCopyXML->CreateClientID();
 		
 		status = EXIT_SUCCESS;
 	}

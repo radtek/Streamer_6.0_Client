@@ -19,9 +19,8 @@ public:
 	CVolumeInfoList *pVolumeList;
 	CDiskInfoList   *pDiskList;
 	wstring         *ImagePath;  //delete
+	char            ClientID[64];
 
-	IWbemServices *m_pSvc;
-	IWbemLocator  *m_pLoc;
 	COSNxml       *m_pTempXML;
 	INSTALLTYPE   m_InstallType;
 
@@ -44,8 +43,6 @@ public:
 		delete(pVolumeList);
 		delete(pDiskList);
 
-		m_pSvc->Release();
-		m_pLoc->Release();    
 		return ;
 	}
 
@@ -57,7 +54,9 @@ public:
 	void COsnMirrorCopyXML::RefreshClientXML();
 	void COsnMirrorCopyXML::WriteConfigurationFile();
 
-	DWORD COsnMirrorCopyXML::OSNInitWMI();
+	DWORD COsnMirrorCopyXML::CreateClientID();
+	DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc);
+	DWORD COsnMirrorCopyXML::OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator);
 	DWORD COsnMirrorCopyXML::CharToWchar(const char *pChar,wchar_t *pWchar,int Length);
 	DWORD COsnMirrorCopyXML::WcharToChar(const wchar_t *pWchar,char *pChar,int Length);
 	DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool MirrorType);

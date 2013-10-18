@@ -10,18 +10,37 @@
 
 extern	COSNService			*pOSNService;
 
+DWORD COsnMirrorCopyXML::CreateClientID()
+{
+	GUID guid;
+	CRegKey *pRegKey = new CRegKey();
+
+	if(S_OK == CoCreateGuid(&guid))
+	{
+		OsnGUIDToString(ClientID,guid);
+		if(pRegKey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService")!= ERROR_SUCCESS)
+		{
+			if(pRegKey->Create(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService") != ERROR_SUCCESS)
+			{
+				delete(pRegKey);
+				return EXIT_FAILURE;
+			}
+
+			pRegKey->SetStringValue("ClientID",ClientID);
+
+			pRegKey->Close();
+			delete(pRegKey);
+			return EXIT_SUCCESS;
+		}
+	}
+	delete(pRegKey);
+	return EXIT_FAILURE;
+}
+
 void COsnMirrorCopyXML::InitializeMembers()
 {
-	DWORD dw = OSNInitWMI();
-	if(dw == EXIT_FAILURE)
-	{
-		printf("Init WMI error!\n");
-		return;
-	}
-
 	GetSystemDisksInfo();
 	GetSystemVolumesInfo();
-
 	//ReadConfigurationFile();
 
 	/*try
@@ -36,7 +55,7 @@ void COsnMirrorCopyXML::InitializeMembers()
 	}*/
 }
 
-DWORD COsnMirrorCopyXML::OSNInitWMI()
+DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 {
 	HRESULT hres;
 	
@@ -97,6 +116,29 @@ DWORD COsnMirrorCopyXML::OSNInitWMI()
 	return EXIT_SUCCESS;
 }
 
+DWORD COsnMirrorCopyXML::OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator)
+{
+	if(m_pSvc != NULL)
+	{
+		m_pSvc->Release();
+		m_pSvc = NULL;
+	}
+
+	if(m_pLoc != NULL)
+	{
+		m_pLoc->Release();
+		m_pLoc = NULL;
+	}
+
+	if(pEnumerator != NULL)
+	{
+		pEnumerator->Release();
+		pEnumerator = NULL;
+	}
+
+	return EXIT_SUCCESS;
+}
+
 DWORD COsnMirrorCopyXML::CharToWchar(const char *pChar,wchar_t *pWchar,int Length)
 {
 	if(!pChar || !pWchar)
@@ -147,8 +189,11 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 	// clear the previous list
 	//try
 	//{
+	IWbemServices          *m_pSvc = NULL;
+	IWbemLocator           *m_pLoc = NULL;
+	IEnumWbemClassObject   *pEnumerator = NULL;
+
 	HRESULT hres;
-	IEnumWbemClassObject* pEnumerator = NULL;
 	hres = m_pSvc->ExecQuery(
 		bstr_t("WQL"),
 		bstr_t("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3"),
@@ -159,6 +204,7 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 	if (FAILED(hres))
 	{
 		printf("pSvc->ExecQuery error\n");
+		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 		return ;               // Program has failed.
 	}
 	IWbemClassObject *pclsObj;
@@ -275,6 +321,7 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 		
 		delete(VolumeLabe2);
 	}
+	OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 	//}
 	/*catch(Exception ^e)
 	{
@@ -290,12 +337,23 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 
 	//try
 	//{
+	IWbemServices          *m_pSvc = NULL;
+	IWbemLocator           *m_pLoc = NULL;
+	IEnumWbemClassObject   *pEnumerator = NULL;
+
+	DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
+	if(dw == EXIT_FAILURE)
+	{
+		printf("Init WMI error!\n");
+		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+		return;
+	}
+
 	DISK_INFO     pDisk;
 	DISK_INFOEX   pDiskEx;
 	int ErrorCode=0;
 
 	HRESULT hres;
-	IEnumWbemClassObject* pEnumerator = NULL;
 	hres = m_pSvc->ExecQuery(
 		bstr_t("WQL"),
 		bstr_t("SELECT * FROM Win32_DiskDrive"),
@@ -306,6 +364,7 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 	if (FAILED(hres))
 	{
 		printf("pSvc->ExecQuery error\n");
+		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 		return ;               // Program has failed.
 	}
 	IWbemClassObject *pclsObj;
@@ -351,6 +410,7 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 			}
 		}
 	}
+	OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 	//}
 	//catch(Exception^ exx)
 	//{
@@ -534,8 +594,9 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 		WcharToChar((wchar_t*)pVolumeInfo->m_DiskGUID->c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("PartitionVolume","InPhyDiskGuid",temp);
 
+		m_pTempXML->AddXMLAttribute("PartitionVolume","ClientID",ClientID);
 		m_pTempXML->AddXMLAttribute("PartitionVolume","State","1");
-		m_pTempXML->AddXMLAttribute("PartitionVolume","ClientID","0");
+		
 
 		index++;
 	}
@@ -565,7 +626,8 @@ void COsnMirrorCopyXML::RefreshDiskListXML()
 		WcharToChar((wchar_t*)pDiskInfo->m_DiskOEM->c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Oem",temp);
 
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","ClientID","0");
+		m_pTempXML->AddXMLAttribute("ClientPhyDisk","ClientID",ClientID);
+
 		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Format","MBR");
 		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Style","0");
 		m_pTempXML->AddXMLAttribute("ClientPhyDisk","State","1");
@@ -589,8 +651,8 @@ void COsnMirrorCopyXML::RefreshClientXML()
 		m_pTempXML->AddXMLAttribute("Client","IsProtected","false");
 	}
 
+	m_pTempXML->AddXMLAttribute("Client","ClientID",ClientID);
 	m_pTempXML->AddXMLAttribute("Client","State","0");
-	m_pTempXML->AddXMLAttribute("Client","ClientID","0");
 	m_pTempXML->AddXMLAttribute("Client","Name",hostname);
 	m_pTempXML->AddXMLAttribute("Client","IpAddr",ipAddress);
 	m_pTempXML->AddXMLAttribute("Client","ManagerServIP",pOSNService->m_OSNRpcServer.m_ServerIP);
@@ -1184,10 +1246,11 @@ DWORD COsnMirrorCopyXML::ReadPreviousState(wstring *Key,bool Flag)
 	DWORD state,&pstate = state;
 	if(Flag) // VolumeCopy
 	{
-		if(pRegkey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNVSS\\Parameters\\State")!= ERROR_SUCCESS)
+		if(pRegkey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNVSS\\Parameters\\State") == ERROR_SUCCESS)
 		{
 			WcharToChar(Key->c_str(),temp,sizeof(temp));
 			pRegkey->QueryDWORDValue(temp,pstate);
+			pRegkey->Close();
 			if( state>=0 && state<=6 )
 			{
 				delete(pRegkey);
@@ -1207,10 +1270,11 @@ DWORD COsnMirrorCopyXML::ReadPreviousState(wstring *Key,bool Flag)
 	}
 	else //DiskCopy
 	{
-		if(pRegkey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNDSS\\Parameters\\State")!= ERROR_SUCCESS)
+		if(pRegkey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNDSS\\Parameters\\State") == ERROR_SUCCESS)
 		{
 			WcharToChar(Key->c_str(),temp,sizeof(temp));
 			pRegkey->QueryDWORDValue(temp,pstate);
+			pRegkey->Close();
 			if( state>=0 && state<=6 )
 			{
 				delete(pRegkey);
@@ -1234,15 +1298,19 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 {
 	/*try
 	{*/
-		DWORD dw = OSNInitWMI();
+		IWbemServices          *m_pSvc = NULL;
+		IWbemLocator           *m_pLoc = NULL;
+		IEnumWbemClassObject   *pEnumerator = NULL;
+
+		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return 3;
 		}
 
 		HRESULT hres;
-		IEnumWbemClassObject* pEnumerator = NULL;
 		wchar_t  pWQL[32];
 		swprintf_s(pWQL,_countof(pWQL),L"Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition",label->c_str());
 
@@ -1256,6 +1324,7 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 		if (FAILED(hres))
 		{
 			printf("pSvc->ExecQuery error\n");
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return 3;               // Program has failed.
 		}
 		IWbemClassObject *pclsObj;
@@ -1275,8 +1344,10 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
             DWORD dw = _wtoi(VolumeLabel->c_str());
 			delete(VolumeLabel);
+			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 			return dw;
 		}
+		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
 		return false;
 	/*}
 	catch(Exception^ ex)
