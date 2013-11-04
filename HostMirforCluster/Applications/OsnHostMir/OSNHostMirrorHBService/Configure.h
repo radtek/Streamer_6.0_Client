@@ -75,6 +75,7 @@ public:
 #define HBMAXIMUM_SOCKET_LISTENING       128
 #define OSNRPC_HBSOCKET_CLIENT_PORT	49185		//default OSN RPC Client port
 #define	OSNRPC_HBSOCKET_SERVICE_PORT	49186		//Default OSN Rpc service port
+#define OSNRPC_HBSOCKET_NEW_PORT      49187        //this port for new mirror to remote
 
 #define	OSNRPC_HBMAX_MSG_LEN			1024*512			//Maximum message length sent by OSN Rpc service 
 #define OSNRPC_HBMAX_MSG				2			//Maximum outstanding messages sent by the client
@@ -84,14 +85,17 @@ public:
 #define	OSN_HBMAX_PASSWORD		32			//Maximum length of the password, limited by windows
 
 
-typedef struct HC_MESSAGE_HEADER
+typedef struct HB_MESSAGE_HEADER
 {
-	unsigned short parseType;       //2bytes无符号 解析类型，xml解析或其他方式
-	unsigned short rtnStatus;		//2bytes无符号 命令执行成功状态 成功或失败
-	unsigned short flag;		    //2bytes无符号 命令标志 同步请求/异步请求/应答
-	unsigned int cmd;               //4bytes无符号 具体命令
- 	unsigned int dataLength;        //4bytes无符号 XML文件长度
-} HC_MESSAGE_HEADER, *PHC_MESSAGE_HEADER;
+	unsigned short	retStatus;						//return Status indicating result of the command execution
+	char			flags;							//ASK/RESPONSE
+	char			command;						//PING, CREATE_BACKUP, etc.
+	unsigned short	paraNum;						//number of parameters for this command
+	DWORD	        dataLength;						//parameter data buffer length
+	unsigned int	timeStamp;						//The time (h*60*60+m*60+s[sec]) the message being generated
+	char			initiatorName[OSN_HBMAX_USERNAME];
+	char			initiatorWWN[OSN_HBMAX_PASSWORD];
+} HB_MESSAGE_HEADER, *PHB_MESSAGE_HEADER;
 
 
 
@@ -102,6 +106,10 @@ typedef struct HC_MESSAGE_HEADER
 #define	CMD_HBSTATUS_FAILED			0x0001
 
 #define OSNRPC_CMD_NOTIFICATION_SET            0x0001
-#define OSNPRC_CMD_GETPARTNER_INFO            0x0002
+#define OSNPRC_CMD_GETPARTNER_INFO             0x0002
+#define OSNPRC_CMD_SET_DISK_MIRROR             0x0003
+#define OSNPRC_CMD_SET_VOLUME_MIRROR           0x0004
+#define OSNPRC_CMD_SET_CLUSTER_ACTIVE          0X0005
+#define OSNPRC_CMD_SET_RECOVERY_BITMAP         0x0006
 
 #endif // __CONFIGURE_H__

@@ -1,4 +1,4 @@
-
+#include <fstream> 
 #include "OsnMirrorCopyXML.h"
 #include "Configure.h"
 #include "OSNRpcSocket.h"
@@ -10,61 +10,277 @@
 
 extern	COSNService			*pOSNService;
 
-DWORD COsnMirrorCopyXML::CreateClientID()
+COsnMirrorCopyXML::COsnMirrorCopyXML()
 {
-	GUID guid;
-	CRegKey *pRegKey = new CRegKey();
+	m_ClientID         = NULL;
+	m_ServerIP         = NULL;
+	m_ServerID         = NULL;
+	m_TargetIqn       = NULL;
+	m_TargetIPs        = NULL;
 
-	if(S_OK == CoCreateGuid(&guid))
+	pVolumeMirrorList  = NULL;
+	pDiskMirrorList    = NULL;
+	pVolumeList        = NULL;
+	pDiskList          = NULL;
+
+	ImagePath          = NULL;
+	m_pTempXML         = NULL;
+
+	this->pVolumeMirrorList = new CMirrorInfoList(128);
+	this->pDiskMirrorList = new CMirrorInfoList(128);
+	this->pVolumeList = new CVolumeInfoList(256);
+	this->pDiskList = new CDiskInfoList(256);
+
+	if(QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ClientID",&m_ClientID,StringKey) != ERROR_SUCCESS)
 	{
-		OsnGUIDToString(ClientID,guid);
-		if(pRegKey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService")!= ERROR_SUCCESS)
+		GUID guid;
+		CoCreateGuid(&guid);
+		OsnGUIDToString(m_ClientID,guid);
+		SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ClientID",&m_ClientID,StringKey);
+	}
+
+	if(QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_IsProtected,BoolKey) == ERROR_SUCCESS)
+	{
+		if(m_IsProtected == true)
 		{
-			if(pRegKey->Create(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService") != ERROR_SUCCESS)
-			{
-				delete(pRegKey);
-				return EXIT_FAILURE;
-			}
-
-			pRegKey->SetStringValue("ClientID",ClientID);
-
-			pRegKey->Close();
-			delete(pRegKey);
-			return EXIT_SUCCESS;
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP",&m_ServerIP,StringKey);
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID",&m_ServerID,StringKey);
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",&m_TargetIqn,StringKey);
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",&m_TargetIPs,StringKey);
 		}
 	}
-	delete(pRegKey);
-	return EXIT_FAILURE;
+	else
+	{
+		m_IsProtected = false;
+	}
+
+	ImagePath = new wstring(L"C:\\Program Files\\Enterprise Information Management\\OSN HostMirror");
+	InitializeMembers();
 }
+
+COsnMirrorCopyXML::~COsnMirrorCopyXML()
+{
+	if(m_pTempXML != NULL)
+		delete(m_pTempXML);
+
+	if(pVolumeMirrorList != NULL)
+		delete(pVolumeMirrorList);
+
+	if(pDiskMirrorList != NULL)
+		delete(pDiskMirrorList);
+
+	if(pVolumeList != NULL)
+		delete(pVolumeList);
+
+	if(pDiskList != NULL)
+		delete(pDiskList);
+
+	if(ImagePath != NULL)
+		delete(ImagePath);
+
+	if(m_ClientID != NULL)
+		delete(m_ClientID);
+
+	if(m_ServerIP != NULL)
+		delete(m_ServerIP);
+
+	if(m_ServerID != NULL)
+		delete(m_ServerID);
+
+	if(m_TargetIqn != NULL)
+		delete(m_TargetIqn);
+
+	if(m_TargetIPs != NULL)
+		delete(m_TargetIPs);
+
+	return ;
+}
+
+DWORD COsnMirrorCopyXML::SetRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign)
+{
+	CRegKey *pRegKey = new CRegKey();
+	DWORD ret = 0;
+
+	if(pRegKey->Open(HKEY_LOCAL_MACHINE,pKeyName)!= ERROR_SUCCESS)
+	{
+		if(pRegKey->Create(HKEY_LOCAL_MACHINE,pKeyName) != ERROR_SUCCESS)
+		{
+			delete(pRegKey);
+			return EXIT_FAILURE;
+		}
+	}
+
+	switch(sign)
+	{
+	case BoolKey:
+		{
+			if(*(bool *)pValue == true)
+			{
+				ret = pRegKey->SetStringValue(pValueName,"true");
+			}
+			else
+			{
+				ret = pRegKey->SetStringValue(pValueName,"false");
+			}
+		}
+		break;
+	case StringKey:
+		{
+			ret = pRegKey->SetStringValue(pValueName,(char*)pValue);
+		}
+		break;
+
+	case DwordKey:
+		{
+			ret = pRegKey->SetDWORDValue(pValueName,*((DWORD*)pValue));
+		}
+		break;
+	}
+	pRegKey->Close();
+	delete(pRegKey);
+	return ret;
+}
+
+DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign)
+{
+	CRegKey *pRegKey = new CRegKey();
+	ULONG nChars = 0;
+	DWORD ret = 0;
+	char  pValueMir[10];
+
+	if(pRegKey->Open(HKEY_LOCAL_MACHINE,pKeyName)!= ERROR_SUCCESS)
+	{
+		delete(pRegKey);
+		return EXIT_FAILURE;
+	}
+
+	switch(sign)
+	{
+	case BoolKey:
+		{
+			nChars = sizeof(pValueMir);
+			ret = pRegKey->QueryStringValue(pValueName,pValueMir,&nChars);
+			if(strcpy_s(pValueMir,sizeof(pValueMir),"true") == 0)
+			{
+				*(bool*)pValue = true;
+			}
+			else
+			{
+				*(bool*)pValue = false;
+			}
+		}
+		break;
+
+	case StringKey:
+		{
+			nChars = 128;
+			char **pValueSec = (char **)pValue;
+			*pValueSec = (char *)malloc(128+1);
+			ret = pRegKey->QueryStringValue(pValueName,*pValueSec,&nChars);
+		}
+		break;
+
+	case DwordKey:
+		{
+			ret = pRegKey->QueryDWORDValue(pValueName,*((DWORD*)pValue));
+		}
+		break;
+	}
+	pRegKey->Close();
+	delete(pRegKey);
+	return ret;
+}
+
+//DWORD COsnMirrorCopyXML::QueryClientID()
+//{
+//	CRegKey *pRegKey = new CRegKey();
+//	ULONG nChars = sizeof(ClientID);
+//
+//	if(pRegKey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService") == ERROR_SUCCESS)
+//	{
+//		if(pRegKey->QueryStringValue("ClientID",ClientID,&nChars) != ERROR_SUCCESS)
+//		{
+//			pRegKey->Close();
+//			delete(pRegKey);
+//			return EXIT_FAILURE;
+//		}
+//
+//		pRegKey->Close();
+//		delete(pRegKey);
+//		return EXIT_SUCCESS;
+//	}
+//	else
+//	{
+//		delete(pRegKey);
+//		return EXIT_FAILURE;
+//	}
+//}
+//
+//DWORD COsnMirrorCopyXML::CreateClientID()
+//{
+//	GUID guid;
+//	ULONG nChars = sizeof(ClientID);
+//	CRegKey *pRegKey = new CRegKey();
+//
+//	if(S_OK == CoCreateGuid(&guid))
+//	{
+//		OsnGUIDToString(ClientID,guid);
+//		if(pRegKey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService")!= ERROR_SUCCESS)
+//		{
+//			if(pRegKey->Create(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService") != ERROR_SUCCESS)
+//			{
+//				delete(pRegKey);
+//				return EXIT_FAILURE;
+//			}
+//
+//			pRegKey->SetStringValue("ClientID",ClientID);
+//
+//			pRegKey->Close();
+//			delete(pRegKey);
+//			return EXIT_SUCCESS;
+//		}
+//		else
+//		{
+//			if(pRegKey->QueryStringValue("ClientID",ClientID,&nChars) != ERROR_SUCCESS)
+//			{
+//				pRegKey->SetStringValue("ClientID",ClientID);
+//			}
+//
+//			pRegKey->Close();
+//			delete(pRegKey);
+//			return EXIT_SUCCESS;
+//		}
+//	}
+//
+//	delete(pRegKey);
+//	return EXIT_FAILURE;
+//}
 
 void COsnMirrorCopyXML::InitializeMembers()
 {
 	GetSystemDisksInfo();
 	GetSystemVolumesInfo();
-	//ReadConfigurationFile();
+	ReadConfigurationFile();
 
 	/*try
-	{
-	GetSystemMirrorInfo();
-	this->treeView1->SelectedNode=this->treeView1->Nodes[0];
-	RefreshComputerNode();
-	}*/
-	/*catch(Exception^ exx)
+	{*/
+		GetSystemMirrorInfo();
+		//RefreshComputerNode();
+	/*}
+	catch(Exception^ exx)
 	{
 	myEventLog->OSNWriteEventLog(String::Concat("获取基本信息时出现异常：",exx->Message->ToString()),EventLogEntryType::Error,024);
 	}*/
 }
 
-DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
+DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_t *pResName)
 {
 	HRESULT hres;
-	
-	m_pLoc = 0;
 	hres = CoCreateInstance(
 		CLSID_WbemLocator,            
 		0,
 		CLSCTX_INPROC_SERVER,
-		IID_IWbemLocator, (LPVOID *) &m_pLoc);
+		IID_IWbemLocator, (LPVOID *) &(*m_pLoc));
 
 	if (FAILED(hres))
 	{
@@ -74,15 +290,15 @@ DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 	}
 
 	//使用pLoc连接到” root\cimv2” 并把pSvc的指针也搞定了
-	hres = m_pLoc->ConnectServer(
-		_bstr_t(L"ROOT\\CIMV2"), // WMI namespace
+	hres = (*m_pLoc)->ConnectServer(
+		_bstr_t(pResName), // WMI namespace
 		NULL,                    // User name
 		NULL,                    // User password
 		0,                       // Locale
 		NULL,                    // Security flags                
 		0,                       // Authority      
 		0,                       // Context object
-		&m_pSvc                    // IWbemServices proxy
+		&(*m_pSvc)                    // IWbemServices proxy
 		);                             
 	if (FAILED(hres))
 	{
@@ -94,7 +310,7 @@ DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 	//已经连接到WMI了
 
 	hres = CoSetProxyBlanket(
-		m_pSvc,                         // the proxy to set
+		(*m_pSvc),                         // the proxy to set
 		RPC_C_AUTHN_WINNT,            // authentication service
 		RPC_C_AUTHZ_NONE,             // authorization service
 		NULL,                         // Server principal name
@@ -116,24 +332,24 @@ DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 	return EXIT_SUCCESS;
 }
 
-DWORD COsnMirrorCopyXML::OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator)
+DWORD COsnMirrorCopyXML::OSNCloseWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,IEnumWbemClassObject **pEnumerator)
 {
-	if(m_pSvc != NULL)
+	if((*m_pSvc) != NULL)
 	{
-		m_pSvc->Release();
+		(*m_pSvc)->Release();
 		m_pSvc = NULL;
 	}
 
-	if(m_pLoc != NULL)
+	if((*m_pLoc) != NULL)
 	{
-		m_pLoc->Release();
-		m_pLoc = NULL;
+		(*m_pLoc)->Release();
+		(*m_pLoc) = NULL;
 	}
 
-	if(pEnumerator != NULL)
+	if((*pEnumerator) != NULL)
 	{
-		pEnumerator->Release();
-		pEnumerator = NULL;
+		(*pEnumerator)->Release();
+		(*pEnumerator) = NULL;
 	}
 
 	return EXIT_SUCCESS;
@@ -193,10 +409,18 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 	IWbemLocator           *m_pLoc = NULL;
 	IEnumWbemClassObject   *pEnumerator = NULL;
 
+	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
+	if(dw == EXIT_FAILURE)
+	{
+		printf("Init WMI error!\n");
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return;
+	}
+
 	HRESULT hres;
 	hres = m_pSvc->ExecQuery(
 		bstr_t("WQL"),
-		bstr_t("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3"),
+		bstr_t("SELECT * FROM Win32_LogicalDisk"),
 		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
 		NULL,
 		&pEnumerator
@@ -204,7 +428,7 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 	if (FAILED(hres))
 	{
 		printf("pSvc->ExecQuery error\n");
-		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return ;               // Program has failed.
 	}
 	IWbemClassObject *pclsObj;
@@ -253,6 +477,12 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 
 		pclsObj->Get(L"Size", 0, &vtProp, 0, 0);
 		size = _wtoi64(vtProp.bstrVal);
+		size = size / 512;
+		VariantClear(&vtProp);
+
+		pclsObj->Get(L"FreeSpace", 0, &vtProp, 0, 0);
+		freesize = _wtoi64(vtProp.bstrVal);
+		freesize = freesize / 512;
 		VariantClear(&vtProp);
 
 		unsigned int	signature = 0;	
@@ -313,15 +543,16 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 				}*/
 			}
 
-			CVolumeInfo	*pVolumeInfo = new CVolumeInfo(Free,size,freesize,guid,VolumeLabel,diskguid,(FileSys)Filesys,OnLine);
+			CVolumeInfo	*pVolumeInfo = new CVolumeInfo(Free,size,size-freesize,guid,VolumeLabel,diskguid,(FileSys)Filesys,OnLine);
 
 			if(this->pVolumeList->GetVolumeInfo(guid) == NULL)
 				this->pVolumeList->AddItem((DWORD)pVolumeInfo);
 		}
 		
+		pclsObj->Release();
 		delete(VolumeLabe2);
 	}
-	OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 	//}
 	/*catch(Exception ^e)
 	{
@@ -341,11 +572,11 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 	IWbemLocator           *m_pLoc = NULL;
 	IEnumWbemClassObject   *pEnumerator = NULL;
 
-	DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
+	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 	if(dw == EXIT_FAILURE)
 	{
 		printf("Init WMI error!\n");
-		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return;
 	}
 
@@ -364,7 +595,7 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 	if (FAILED(hres))
 	{
 		printf("pSvc->ExecQuery error\n");
-		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return ;               // Program has failed.
 	}
 	IWbemClassObject *pclsObj;
@@ -380,37 +611,41 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 		}
 
 		VARIANT vtProp;
-		pclsObj->Get(L"Model", 0, &vtProp, 0, 0);
-		wstring *DiskOEM	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
-		VariantClear(&vtProp);
-
-		memset(&pDisk,0,sizeof(DISK_INFO));
-		memset(&pDiskEx,0,sizeof(DISK_INFOEX));
-		pDisk.m_DiskIndex=i;
-
-		ErrorCode=OsnGetDisk(&pDisk);
-		if(ErrorCode==0)
+		if(S_OK == pclsObj->Get(L"Model", 0, &vtProp, 0, 0))
 		{
-			wstring *chguid = NULL;
-			char guid[128];
-			OsnGUIDToString(guid,pDisk.m_DiskID.SAN_VolumeID.m_VolumeGuid);
+			wstring *DiskOEM	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
+			VariantClear(&vtProp);
 
-			wchar_t   lpszFileW[256];
-			CharToWchar(guid,lpszFileW,_countof(lpszFileW));
-			chguid = new wstring(lpszFileW);
+			memset(&pDisk,0,sizeof(DISK_INFO));
+			memset(&pDiskEx,0,sizeof(DISK_INFOEX));
+			pDisk.m_DiskIndex=i;
 
-			unsigned __int64 UseSize = this->pVolumeList->GetBlocksBySignature(chguid);
-
-			CDiskInfo *pNewDisk = new CDiskInfo(Free,pDisk.m_DiskSize,pDisk.m_DiskIndex,chguid,DiskOEM,MBR,Basic,Inited);
-			if(pNewDisk != NULL)
+			ErrorCode=OsnGetDisk(&pDisk);
+			if(ErrorCode==0)
 			{
-				if(pDiskList->GetDiskInfo(pNewDisk->m_Guid)==NULL 
-					||pDiskList->GetDiskByIndex(pNewDisk->m_DiskIndex) == NULL)
-					pDiskList->AddItem((DWORD)pNewDisk);
+				wstring *chguid = NULL;
+				char guid[128];
+				OsnGUIDToString(guid,pDisk.m_DiskID.SAN_VolumeID.m_VolumeGuid);
+
+				wchar_t   lpszFileW[256];
+				CharToWchar(guid,lpszFileW,_countof(lpszFileW));
+				chguid = new wstring(lpszFileW);
+
+				unsigned __int64 UseSize = this->pVolumeList->GetBlocksBySignature(chguid);
+
+				CDiskInfo *pNewDisk = new CDiskInfo(Free,pDisk.m_DiskSize,UseSize,pDisk.m_DiskIndex,chguid,DiskOEM,MBR,Basic,Inited);
+				if(pNewDisk != NULL)
+				{
+					if(pDiskList->GetDiskInfo(pNewDisk->m_Guid)==NULL 
+						||pDiskList->GetDiskByIndex(pNewDisk->m_DiskIndex) == NULL)
+						pDiskList->AddItem((DWORD)pNewDisk);
+				}
 			}
 		}
+
+		pclsObj->Release();
 	}
-	OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 	//}
 	//catch(Exception^ exx)
 	//{
@@ -418,142 +653,990 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 	//}
 }
 
-//void ReadConfigurationFile()
-//		 {
-//			 String ^strLine = nullptr;
-//			 array<String^>^split= nullptr;
-//			 array<Char>^chars = {';'};
+void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,char sign)
+{
+	int j=0;
+	for(;*(pSou+j)!=sign && *(pSou+j)!='\0';j++)
+	{
+		*(pDes + j) = *(pSou + j);
+	}
+	*(pDes + j) = '\0';
+}
 
-//			 //read initiator information info
-//			 String ^strFileName = String::Concat(ImagePath, L"\\OSNHostMirror.cfg");
-//			 FileInfo ^fiHost = gcnew FileInfo(strFileName);
-//			 if(!fiHost->Exists)
-//			 {
-//				 return;
-//			 }
+void COsnMirrorCopyXML::ReadConfigurationFile()
+{
+	char pImagePath[256];
+	char TempC[256];
+	wchar_t  TempW[128];
+	char *pSou,pDes[128];
 
-//			 //String ^strMsg = "Illegal line found in Configuration file.";
+	//read initiator information info
+	WcharToChar(ImagePath->c_str(),pImagePath,sizeof(pImagePath));
+	strcat_s(pImagePath, "\\OSNHostMirror.cfg");
 
-//			 StreamReader ^srHost = fiHost->OpenText();
-//			 while((strLine = srHost->ReadLine()))
-//			 {
-//				 if(strLine->StartsWith("DiskMirrorInfo"))
-//				 {
-//					 //DiskMirrorInfo=SrcSignature;DesSignature;EIMMode
-//					 strLine = strLine->Substring(strlen("DiskMirrorInfo") + 1);
-//					 split = strLine->Split( chars );
+	fstream fiHost(pImagePath,ios::in);
+	if(!fiHost.is_open())
+	{
+		printf("ReadConfigurationFile OSNHostMirror.cfg error!");
+		return ;
+	}
 
-//					 int i=0;
-//					 String^  SrcGuid = "00000000-0000-0000-0000-000000000000";
-//					 String^  DesGuid = "00000000-0000-0000-0000-000000000000";
-//					 unsigned int uiEIMMode = 2;
-//					 unsigned int isCluster=0;
-//					 String ^clusterResourceName = "NONE";
+	//String ^strMsg = "Illegal line found in Configuration file.";
 
-//					 System::Collections::IEnumerator	^myEnum = split->GetEnumerator();
-//					 while ( myEnum->MoveNext() )
-//			   {
-//				   String^ s = safe_cast<String^>(myEnum->Current);
+	while(fiHost.getline(TempC,sizeof(TempC)))
+	{
+		if(*TempC == 'D')
+		{
+			pSou = TempC + strlen("DiskMirrorInfo") + 1;
 
-//				   if(i == 0)
-//				   {
-//					   SrcGuid = s;//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
-//				   }
-//				   else if(i == 1)
-//				   {
-//					   DesGuid = s;//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
-//				   }
-//				   else if(i == 2)
-//				   {
-//					   uiEIMMode = Convert::ToInt32(s);
-//				   }
-//				   else if(i == 3)
-//				   {
-//					   isCluster=Convert::ToInt32(s);
-//				   }
-//				   else if(i == 4)
-//				   {
-//					   clusterResourceName = s;
-//				   }
-//				   ++i;
-//			   }
+			int i=0;
+			unsigned int uiEIMMode = 2;
+			unsigned int isCluster = 0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *clusterResourceName = new wstring(L"NONE");
 
-//					 CMirrorInfo ^pMirrorInfo = gcnew CMirrorInfo(SrcGuid,DesGuid,uiEIMMode,isCluster,clusterResourceName);
-//					 this->pDiskMirrorList->AddItem(pMirrorInfo);
-//				 }
+			while(i < 5)
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+				else if(i == 3)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(isCluster,pDes,10);
+				}
+				else if(i == 4)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					clusterResourceName->assign(TempW);
+				}
 
-//				 if(strLine->StartsWith("VolumeMirrorInfo"))
-//				 {
-//					 //VolumeMirrorInfo=SrcSignature;SrcOffset;DesSignature;DesOffset;EIMMode
-//					 strLine = strLine->Substring(strlen("VolumeMirrorInfo") + 1);
-//					 split = strLine->Split( chars );
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
 
-//					 int i=0;
-//					 String^  SrcGuid = "00000000-0000-0000-0000-000000000000";
-//					 String^  DesGuid = "00000000-0000-0000-0000-000000000000";
-//					 unsigned int uiEIMMode = 2;
-//					 unsigned int isCluster = 0;
-//					 String		^clusterResourceName = "NONE";
+			CMirrorInfo *pMirrorInfo = new CMirrorInfo(SrcGuid,DesGuid,uiEIMMode,isCluster,clusterResourceName);
+			this->pDiskMirrorList->AddItem((DWORD)pMirrorInfo);
+		}
 
-//					 System::Collections::IEnumerator	^myEnum = split->GetEnumerator();
-//					 while ( myEnum->MoveNext() )
-//			   {
-//				   String^ s = safe_cast<String^>(myEnum->Current);
+		if(*TempC == 'V')
+		{
+			pSou = TempC + strlen("VolumeMirrorInfo") + 1;
 
-//				   if(i == 0)
-//				   {
-//					   SrcGuid =s; //UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
-//				   }
-//				   /*else if(i == 1)
-//				   {
-//				   uiSrcDiskOffset = UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
-//				   }*/
-//				   else if(i == 1)
-//				   {
-//					   DesGuid = s;//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
-//				   }
-//				   /* else if(i == 3)
-//				   {
-//				   uiDesDiskOffset = UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
-//				   }*/
-//				   else if(i == 2)
-//				   {
-//					   uiEIMMode = Convert::ToInt32(s);
-//				   }
-//				   else if(i == 3)
-//				   {
-//					   isCluster = Convert::ToInt32(s);
-//				   }
-//				   else if(i == 4)
-//				   {
-//					   clusterResourceName = s;
-//				   }
-//				   ++i;
-//			   }
+			int i=0;
+			unsigned int uiEIMMode = 2;
+			unsigned int isCluster = 0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *clusterResourceName = new wstring(L"NONE");
 
-//					 CMirrorInfo ^pMirrorInfo = gcnew CMirrorInfo(SrcGuid,DesGuid,uiEIMMode,isCluster,clusterResourceName);
-//					 this->pVolumeMirrorList->AddItem(pMirrorInfo);
-//				 }
+			while (i < 5)
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+				else if(i == 3)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(isCluster,pDes,10);
+				}
+				else if(i == 4)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					clusterResourceName->assign(TempW);
+				}
+
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
+
+			CMirrorInfo *pMirrorInfo = new CMirrorInfo(SrcGuid,DesGuid,uiEIMMode,isCluster,clusterResourceName);
+			this->pVolumeMirrorList->AddItem((DWORD)pMirrorInfo);
+		}
+	}
+	fiHost.close();
+}
+
+void COsnMirrorCopyXML::GetSystemMirrorInfo()
+{
+
+	if(this->m_InstallType == VolumeCopy)
+		GetVolumeCopyMirrorInfo();
+	else if(this->m_InstallType == DiskCopy)
+		GetDiskCopyMirrorInfo();
+	else
+	{
+		GetVolumeCopyMirrorInfo();
+		GetDiskCopyMirrorInfo();
+	}
+}
+
+void COsnMirrorCopyXML::GetDiskCopyMirrorInfo()
+{
+	/*try
+	{*/
+		MIRROR_INFO MirrorInfo ;
+		for( int i=0;i<this->pDiskList->GetLength();i++)
+		{
+			CDiskInfo *pDiskInfo = (CDiskInfo *)(this->pDiskList->GetItem(i));
+			if(pDiskInfo->m_Role!=Free)
+				continue;
+
+			GUID Srcguid0;
+			char SrcguidC[64];
+			WcharToChar(pDiskInfo->m_Guid->c_str(),SrcguidC,sizeof(SrcguidC));
+			OsnGUIDFromString(SrcguidC,&Srcguid0);
+
+			GUID Tgtguid0;
+			char TgtguidC[64] = {"00000000-0000-0000-0000-000000000000"};
+			OsnGUIDFromString(TgtguidC,&Tgtguid0);
+
+			MirrorInfo.m_SourceVolume.SAN_VolumeID.m_VolumeGuid=Srcguid0;
+			MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid=Tgtguid0;
 
 
-//			 }
-//			 srHost->Close();
-//		 }
+			int ErrorCode = OsnDiskCopyGetMirrorInfo(&MirrorInfo);
+			if(ErrorCode==0)
+			{   
+				char    guidC[128];
+				wchar_t guidW[128];
+				OsnGUIDToString(guidC,MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid);
+				CharToWchar(guidC,guidW,_countof(guidW));
 
-//void COsnMirrorCopyXML::GetSystemMirrorInfo()
-//{
-//
-//	if(this->m_InstallType == VolumeCopy)
-//		GetVolumeCopyMirrorInfo();
-//	else if(this->m_InstallType == DiskCopy)
-//		GetDiskCopyMirrorInfo();
-//	else
-//	{
-//		GetVolumeCopyMirrorInfo();
-//		GetDiskCopyMirrorInfo();
-//
-//	}
-//}
+				wstring *strguid = new wstring(guidW);
+				CDiskInfo *pTargetDisk= this->pDiskList->GetDiskInfo(strguid);
+				delete(strguid);
+
+				if(pTargetDisk!=nullptr)
+				{
+					pTargetDisk->m_Role =Mirror_Target;
+				}
+				pDiskInfo->m_Role=Mirror_Source;
+
+				CMirrorInfo *pMirrorInfo = this->pDiskMirrorList->GetDiskMirrorInfo(pDiskInfo->m_Guid,true);
+				if(pMirrorInfo == NULL)
+				{
+					char    SrcguidC[128];
+					wchar_t SrcguidW[128];
+					OsnGUIDToString(SrcguidC,MirrorInfo.m_SourceVolume.SAN_VolumeID.m_VolumeGuid);
+					CharToWchar(SrcguidC,SrcguidW,_countof(SrcguidW));
+					wstring *strSrcguid = new wstring(SrcguidW);
+
+					char    DesguidC[128];
+					wchar_t DesguidW[128];
+					OsnGUIDToString(DesguidC,MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid);
+					wstring *strDesguid = new wstring(DesguidW);
+
+					unsigned int eimmode = GetEimModebyGUID(strSrcguid,strDesguid);
+					unsigned int isCluster = GetIsClusterByGUID(strSrcguid,strDesguid);
+					wstring *ResourceName = GetClusterResourceName(strSrcguid,strDesguid);
+					pMirrorInfo =  new CMirrorInfo(strSrcguid,strDesguid,eimmode,isCluster,ResourceName);
+
+					this->pDiskMirrorList->AddItem((DWORD)pMirrorInfo);
+				}
+			}
+		}
+		WriteConfigurationFile();
+	/*}
+	catch(Exception^ exx)
+	{
+		myEventLog->OSNWriteEventLog(String::Concat("GetDiskCopyMirrorInfo,error：",exx->Message->ToString()),EventLogEntryType::Error,024);
+	}*/
+}
+
+wstring* COsnMirrorCopyXML::GetClusterResourceName(wstring *srcguid,wstring *dstguid)
+{
+	//read initiator information info
+	char pImagePath[256];
+	char TempC[256];
+	wchar_t  TempW[128];
+	char *pSou,pDes[128];
+	wstring  *RetName = new wstring(L"NONE");
+
+	WcharToChar(ImagePath->c_str(),pImagePath,sizeof(pImagePath));
+	strcat_s(pImagePath, "\\OSNHostMirror.cfg");
+	fstream fiHost(pImagePath,ios::in);
+	if(!fiHost.is_open())
+	{
+		printf("GetClusterResourceName OSNHostMirror.cfg error!");
+		return RetName;
+	}
+
+	while(fiHost.getline(TempC,sizeof(TempC)))
+	{
+		if(*TempC == 'D')
+		{
+			//DiskMirrorInfo=SrcSignature;DesSignature;EIMMode
+			pSou = TempC + strlen("DiskMirrorInfo") + 1;
+
+			int i=0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			unsigned int uiEIMMode=2;
+			unsigned int isCluster = 0;
+			wstring  *ResourceName = new wstring(L"NONE");
+
+			while ( i<5 )
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+				else if(i == 3)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(isCluster,pDes,10);
+				}
+				else if( i == 4)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					ResourceName->assign(TempW);
+				}
+
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
+
+			if(SrcGuid->compare(srcguid->c_str())==0 && DesGuid->compare(dstguid->c_str())==0)
+			{
+				delete(SrcGuid);
+				delete(DesGuid);
+				fiHost.close();
+				return ResourceName;
+			}
+			delete(SrcGuid);
+			delete(DesGuid);
+
+		}
+
+		if(*TempC == 'V')
+		{
+			//VolumeMirrorInfo=SrcSignature;SrcOffset;DesSignature;DesOffset;EIMMode
+			pSou = TempC + strlen("VolumeMirrorInfo") + 1;
+
+			int i=0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			unsigned int uiEIMMode=2;
+			unsigned int isCluster = 0;
+			wstring  *ResourceName = new wstring(L"NONE");
+
+			while ( i<5 )
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW); //UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+				else if(i == 3)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(isCluster,pDes,10);
+				}
+				else if(i == 4)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					ResourceName->assign(TempW);
+				}
+
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
+
+			if(SrcGuid->compare(srcguid->c_str())==0 && DesGuid->compare(dstguid->c_str())==0)
+			{
+				delete(SrcGuid);
+				delete(DesGuid);
+				fiHost.close();
+				return ResourceName;
+			}
+			delete(SrcGuid);
+			delete(DesGuid);
+		}
+	}
+	fiHost.close();
+	return RetName;
+}
+
+DWORD COsnMirrorCopyXML::GetIsClusterByGUID(wstring *srcguid,wstring *dstguid)
+{
+	char pImagePath[256];
+	char TempC[256];
+	wchar_t TempW[256];
+	char *pSou,pDes[128];
+
+	//read initiator information info
+	WcharToChar(ImagePath->c_str(),pImagePath,sizeof(pImagePath));
+	strcat_s(pImagePath,"\\OSNHostMirror.cfg");
+
+	fstream fiHost(pImagePath,ios::in);
+	if(!fiHost.is_open())
+	{
+		printf("GetIsClusterByGUID OSNHostMirror.cfg error!");
+		return 2;
+	}
+
+	//String ^strMsg = "Illegal line found in Configuration file.";
+	while(fiHost.getline(TempC,sizeof(TempC)))
+	{
+		if(*TempC == 'D')
+		{
+			//DiskMirrorInfo=SrcSignature;DesSignature;EIMMode
+			pSou = TempC + strlen("DiskMirrorInfo") + 1;
+
+			int i=0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			unsigned int uiEIMMode=2;
+			unsigned int isCluster = 0;
+			wstring *ResourceName = new wstring(L"NONE");
+
+			while ( i<5 )
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+				else if(i == 3)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(isCluster,pDes,10);
+				}
+				else if(i == 4)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					ResourceName->assign(TempW);
+				}
+
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
+
+			if(SrcGuid->compare(srcguid->c_str())==0 && DesGuid->compare(dstguid->c_str())==0)
+			{
+				delete(SrcGuid);
+				delete(DesGuid);
+				fiHost.close();
+				return isCluster;
+			}
+			delete(SrcGuid);
+			delete(DesGuid);
+
+		}
+
+		if(*TempC == 'V')
+		{
+			//VolumeMirrorInfo=SrcSignature;SrcOffset;DesSignature;DesOffset;EIMMode
+			pSou = TempC + strlen("VolumeMirrorInfo") + 1;
+
+			int i=0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			unsigned int uiEIMMode=2;
+			unsigned int isCluster = 0;
+			wstring *ResourceName = new wstring(L"NONE");
+
+			while ( i<5 )
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW); //UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+				else if(i == 3)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(isCluster,pDes,10);
+				}
+				else if(i == 4)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					ResourceName->assign(TempW);
+				}
+
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
+
+			if(SrcGuid->compare(srcguid->c_str())==0 && DesGuid->compare(dstguid->c_str())==0)
+			{
+				delete(SrcGuid);
+				delete(DesGuid);
+				fiHost.close();
+				return isCluster;
+			}
+			delete(SrcGuid);
+			delete(DesGuid);
+
+		}
+
+
+	}
+	fiHost.close();
+	return 0;
+}
+
+DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid)
+{
+	char pImagePath[256];
+	char TempC[256];
+	wchar_t TempW[256];
+	char *pSou,pDes[128];
+
+	//read initiator information info
+	WcharToChar(ImagePath->c_str(),pImagePath,sizeof(pImagePath));
+	strcat_s(pImagePath,"\\OSNHostMirror.cfg");
+
+	fstream fiHost(pImagePath,ios::in);
+	if(!fiHost.is_open())
+	{
+		printf("GetEimModebyGUID OSNHostMirror.cfg error!");
+		return 2;
+	}
+
+	while(fiHost.getline(TempC,sizeof(TempC)))
+	{
+		if(*TempC == 'D')
+		{
+			//DiskMirrorInfo=SrcSignature;DesSignature;EIMMode
+			pSou = TempC + strlen("DiskMirrorInfo") + 1;
+
+			int i=0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			unsigned int uiEIMMode = 2;
+
+			while ( i<3 )
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
+
+			if(SrcGuid->compare(srcguid->c_str())==0 && DesGuid->compare(dstguid->c_str())==0)
+			{
+				delete(SrcGuid);
+				delete(DesGuid);
+				fiHost.close();
+				return uiEIMMode;
+			}
+			delete(SrcGuid);
+			delete(DesGuid);
+
+		}
+
+		if(*TempC == 'V')
+		{
+			pSou = TempC + strlen("VolumeMirrorInfo") + 1;
+
+			int i=0;
+			wstring  *SrcGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			wstring  *DesGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
+			unsigned int uiEIMMode = 2;
+
+			while ( i<3 )
+			{
+				if(i == 0)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					SrcGuid->assign(TempW);
+				}
+				else if(i == 1)
+				{
+					MoveNext(pSou,pDes,';');
+					CharToWchar(pDes,TempW,_countof(TempW));
+					DesGuid->assign(TempW);
+				}
+				else if(i == 2)
+				{
+					MoveNext(pSou,pDes,';');
+					_itoa_s(uiEIMMode,pDes,10);
+				}
+
+				pSou = pSou + strlen(pDes) + 1;
+				++i;
+			}
+
+			if(SrcGuid->compare(srcguid->c_str())==0 &&DesGuid->compare(dstguid->c_str())==0)
+			{
+				delete(SrcGuid);
+				delete(DesGuid);
+				fiHost.close();
+				return uiEIMMode;
+			}
+			delete(SrcGuid);
+			delete(DesGuid);
+		}
+	}
+	fiHost.close();
+	return 2;
+}
+
+void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo()
+{
+	/*try
+	{*/
+		MIRROR_INFO MirrorInfo ;
+		for( int i=0;i<this->pVolumeList->GetLength();i++)
+		{
+			CVolumeInfo *pVolumeInfo = (CVolumeInfo *)(this->pVolumeList->GetItem(i));
+			if(pVolumeInfo->m_Role!=Free)
+				continue;
+
+			/*try
+			{*/
+				GUID Srcguid0;
+				char SrcguidC[64];
+				WcharToChar(pVolumeInfo->m_GUID->c_str(),SrcguidC,sizeof(SrcguidC));
+				OsnGUIDFromString(SrcguidC,&Srcguid0);
+				
+				GUID Tgtguid0;
+				char TgtguidC[64] = {"00000000-0000-0000-0000-000000000000"};
+				OsnGUIDFromString(TgtguidC,&Tgtguid0);
+
+				MirrorInfo.m_SourceVolume.SAN_VolumeID.m_VolumeGuid=Srcguid0;
+				MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid=Tgtguid0;
+			/*}
+			catch(Exception^ ee)
+			{
+				myEventLog->OSNWriteEventLog(String::Concat("Osnguid from string,error：",ee->Message->ToString()),EventLogEntryType::Error,024);
+			}*/
+
+			/*try
+			{*/
+				int ErrorCode = OsnVolumeCopyGetMirrorInfo(&MirrorInfo);
+				if(ErrorCode==0)
+				{   
+					char    guidC[128];
+					wchar_t guidW[128];
+					OsnGUIDToString(guidC,MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid);
+					CharToWchar(guidC,guidW,_countof(guidC));
+
+					wstring *strguid=new wstring(guidW);
+					CVolumeInfo *pTargetVolume = this->pVolumeList->GetVolumeInfo(strguid);
+					delete(strguid);
+
+					if(pTargetVolume!= NULL)
+					{
+						pTargetVolume->m_Role = Mirror_Target;
+					}
+					pVolumeInfo->m_Role = Mirror_Source;
+
+					CMirrorInfo *pMirrorInfo = this->pVolumeMirrorList->GetMirrorInfo(pVolumeInfo->m_GUID,true);
+					if(pMirrorInfo == NULL)
+					{
+						char    SrcguidC[128];
+						wchar_t SrcguidW[128];
+						OsnGUIDToString(SrcguidC,MirrorInfo.m_SourceVolume.SAN_VolumeID.m_VolumeGuid);
+						CharToWchar(SrcguidC,SrcguidW,_countof(SrcguidW));
+						wstring *Srcguid = new wstring(SrcguidW);
+
+						char    DesguidC[128];
+						wchar_t DesguidW[128];
+						OsnGUIDToString(DesguidC,MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid);
+						CharToWchar(DesguidC,DesguidW,_countof(SrcguidW));
+						wstring *Desguid = new wstring(DesguidW);
+
+						unsigned int eimmode=GetEimModebyGUID(Srcguid,Desguid);
+						unsigned int isCluster=GetIsClusterByGUID(Srcguid,Desguid);
+						wstring *ResourceName = GetClusterResourceName(Srcguid,Desguid);
+						pMirrorInfo = new CMirrorInfo(Srcguid,Desguid,eimmode,isCluster,ResourceName);
+
+						this->pVolumeMirrorList->AddItem((DWORD)pMirrorInfo);
+					}
+				}
+			/*}
+			catch(Exception^ exxx)
+			{
+				myEventLog->OSNWriteEventLog(String::Concat("OsnVolumeCopyGetMirrorInfo,error：",exxx->Message->ToString()),EventLogEntryType::Error,024);
+			}*/
+		}
+		WriteConfigurationFile();
+	/*}
+	catch(Exception^ exx)
+	{
+		myEventLog->OSNWriteEventLog(String::Concat("GetVolumeCopyMirrorInfo,error：",exx->Message->ToString()),EventLogEntryType::Error,024);
+
+	}*/
+}
+
+void COsnMirrorCopyXML::QueryFCChannel()
+{
+	CWmi  *pWmi = new CWmi(L"ROOT\\WMI");
+	if(!pWmi)
+		return ;
+
+	if(pWmi->Init(L"MSFC_FibrePortHBAAttributes",NULL))
+	{
+		for(int idx = 0; idx < pWmi->GetObjCount();++idx)
+		{
+			int      charSize = 0;
+			UCHAR  * portWWN = NULL;
+			IWbemClassObject *pObject;
+			_variant_t vtProp;
+			if(pWmi->GetObjectProp(idx,"Attributes",&vtProp,VT_UNKNOWN))
+			{
+				VARIANT vtProp2;
+				pObject = (IWbemClassObject *)vtProp.punkVal;
+				pObject->Get(L"PortWWN",0,&vtProp2,0,0);
+				SAFEARRAY *psa = V_ARRAY(&vtProp2);
+				portWWN = pWmi->SafeArrayToUInt8(psa,&charSize);
+				for(int j = 0 ;j<charSize;++j)
+					printf("%x",portWWN[j]);
+
+				m_pTempXML->AddXMLChannelElement("ChannelList","Channel");
+				m_pTempXML->AddXMLAttribute("Channel","Type","FC");
+				m_pTempXML->AddXMLAttribute("Channel","InitiatorWWN",(char *)portWWN);
+				
+				VariantClear(&vtProp2);
+			}
+
+			VariantClear(&vtProp);
+		}
+	}
+
+	delete pWmi;
+}
+
+DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pIPAddress,char *pIqn)
+{
+	//Connect to server
+	string s("iscsicli AddTargetPortal ");
+	s = s + pIPAddress + " " + "3260";
+	DWORD dw = system(s.c_str());
+
+	// Login to server
+	if(dw == 0)
+	{
+			s = "iscsicli LoginTarget ";
+			s = s + pIqn + " " + "T * * * * * * * * * * * * * * * 0";
+			dw = system(s.c_str());
+	}
+
+	return dw;
+}
+
+DWORD COsnMirrorCopyXML::GetSessionIDByIqn(ULONGLONG *pSessionID,ULONGLONG *pAdapterID,char *pIqn)
+{
+	IWbemServices          *m_pSvc = NULL;
+	IWbemLocator           *m_pLoc = NULL;
+	IEnumWbemClassObject   *pEnumerator = NULL;
+	IWbemClassObject       **m_pclsObj = NULL;
+	IWbemClassObject       *pclsObj = NULL;
+	VARIANT vtProp;
+	VARIANT vtProp0;
+	VARIANT vtProp1;
+	HRESULT hres;
+
+	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\WMI");
+	if(dw == EXIT_FAILURE)
+	{
+		printf("Init WMI error!\n");
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return -1;
+	}
+
+	wchar_t  pWQL[128] = {L"SELECT * FROM MSiSCSI_InitiatorSessionInfo"};
+
+	hres = m_pSvc->ExecQuery(
+		bstr_t("WQL"),
+		pWQL,
+		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+		NULL,
+		&pEnumerator
+		);
+	if (FAILED(hres))
+	{
+		printf("pSvc->ExecQuery error\n");
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return 3;               // Program has failed.
+	}
+
+	ULONG uReturn = 0;
+
+	while(pEnumerator)
+	{
+		// 推出下一个对象
+		pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+		if(0 == uReturn)
+		{
+			break;
+		}
+
+		if(pclsObj->Get(L"UniqueAdapterId", 0, &vtProp, 0, 0) == S_OK)
+		{
+			*pAdapterID = vtProp.ullVal;
+		}
+		if(pclsObj->Get(L"SessionCount", 0, &vtProp, 0, 0) == S_OK)
+		{ 
+			VARTYPE vt;
+
+			hres = pclsObj->Get(L"SessionsList", 0, &vtProp1, 0, 0);
+
+			SAFEARRAY *psa = V_ARRAY(&vtProp1);
+			SafeArrayGetVartype(psa,&vt);
+			HRESULT hr=SafeArrayAccessData(psa,(void HUGEP**)&m_pclsObj);
+
+			if(vt == VT_UNKNOWN)
+			{
+				for(int count=0;count<vtProp.lVal;count++)
+				{
+					if(m_pclsObj[count]->Get(L"TargetiSCSIName", 0, &vtProp0, 0, 0) == S_OK)
+					{
+						if(strcmp((_bstr_t)vtProp0.bstrVal,pIqn) == 0)
+						{
+							if(m_pclsObj[count]->Get(L"TargetiSCSIName", 0, &vtProp0, 0, 0) == S_OK)
+							{
+								*pSessionID = vtProp0.ullVal;
+							}
+						}
+					}
+				}
+			}
+			hr  = SafeArrayUnaccessData(psa);
+		}
+	}
+
+	VariantClear(&vtProp);
+	VariantClear(&vtProp0);
+	VariantClear(&vtProp1);
+
+	if(pclsObj != NULL)
+	{
+		pclsObj->Release();
+	}
+	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+	return 0;
+}
+
+DWORD COsnMirrorCopyXML::DisConnectiSCSIChannel(char *pIPAddress,char *pIqn)
+{
+	DWORD dw = 0;
+	ULONGLONG SessionID;
+	ULONGLONG AdapterID;
+	char pSessionID[64];
+	char pAdapterID[64];
+
+	dw = GetSessionIDByIqn(&SessionID,&AdapterID,pIqn);
+	if(dw == EXIT_SUCCESS)
+	{
+		 _ui64toa_s(SessionID,pSessionID,sizeof(pSessionID),16);
+		 _ui64toa_s(AdapterID,pAdapterID,sizeof(pAdapterID),16);
+
+		 string s = "iscsicli LogoutTarget ";
+		 s = s + pSessionID + pAdapterID + "-" + pSessionID; 
+
+		 dw = system(s.c_str());
+		 if(dw == EXIT_SUCCESS)
+		 {
+			 s = "iscsicli RemoveTargetPortal ";
+			 s = s + pIPAddress + " 3260";
+			 dw = system(s.c_str());
+		 }
+	}
+
+	return dw;
+}
+
+DWORD COsnMirrorCopyXML::QueryiSCSIChannel()
+{
+	IWbemServices          *m_pSvc = NULL;
+	IWbemLocator           *m_pLoc = NULL;
+	IEnumWbemClassObject   *pEnumerator = NULL;
+	IWbemClassObject       **m_pclsObj = NULL;
+	IWbemClassObject       *pclsObj = NULL;
+	VARIANT vtProp;
+	VARIANT vtProp0;
+	VARIANT vtProp1;
+	HRESULT hres;
+
+	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\WMI");
+	if(dw == EXIT_FAILURE)
+	{
+		printf("Init WMI error!\n");
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return -1;
+	}
+
+	wchar_t  pWQL[128] = {L"SELECT * FROM MSiSCSI_InitiatorSessionInfo"};
+
+	hres = m_pSvc->ExecQuery(
+		bstr_t("WQL"),
+		pWQL,
+		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+		NULL,
+		&pEnumerator
+		);
+	if (FAILED(hres))
+	{
+		printf("pSvc->ExecQuery error\n");
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return 3;               // Program has failed.
+	}
+
+	ULONG uReturn = 0;
+
+	while(pEnumerator)
+	{
+		// 推出下一个对象
+		pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+		if(0 == uReturn)
+		{
+			break;
+		}
+		if(pclsObj->Get(L"SessionCount", 0, &vtProp, 0, 0) == S_OK)
+		{ 
+			VARTYPE vt;
+
+			hres = pclsObj->Get(L"SessionsList", 0, &vtProp1, 0, 0);
+
+			SAFEARRAY *psa = V_ARRAY(&vtProp1);
+			SafeArrayGetVartype(psa,&vt);
+			HRESULT hr=SafeArrayAccessData(psa,(void HUGEP**)&m_pclsObj);
+
+			if(vt == VT_UNKNOWN)
+			{
+				for(int count=0;count<vtProp.lVal;count++)
+				{
+					m_pTempXML->AddXMLChannelElement("ChannelList","Channel");
+					m_pTempXML->AddXMLAttribute("Channel","Type","ISCSI");
+
+					if(m_pclsObj[count]->Get(L"InitiatoriSCSIName", 0, &vtProp0, 0, 0) == S_OK)
+					{
+						m_pTempXML->AddXMLAttribute("Channel","InitiatorIqn",(_bstr_t)vtProp0.bstrVal);
+					}
+					if(m_pclsObj[count]->Get(L"TargetiSCSIName", 0, &vtProp0, 0, 0) == S_OK)
+					{
+						m_pTempXML->AddXMLAttribute("Channel","TargetIqn",(_bstr_t)vtProp0.bstrVal);
+					}
+				}
+			}
+			hr  = SafeArrayUnaccessData(psa);
+		}
+	}
+
+	VariantClear(&vtProp);
+	VariantClear(&vtProp0);
+	VariantClear(&vtProp1);
+
+	if(pclsObj != NULL)
+	{
+		pclsObj->Release();
+	}
+	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+	return 0;
+}
+
+void COsnMirrorCopyXML::RefreshChannelListXML()
+{
+	m_pTempXML->AddXMLElement("Client","ChannelList");
+
+	QueryFCChannel();
+	QueryiSCSIChannel();
+}
 
 void COsnMirrorCopyXML::RefreshVolumeListXML()
 {
@@ -561,6 +1644,7 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 	for( int i=0;i<this->pVolumeList->GetLength();i++)
 	{
 		char temp[128];
+		unsigned __int64 sizeTemp = 0;
 		CVolumeInfo *pVolumeInfo =(CVolumeInfo *)(this->pVolumeList->GetItem(i));
 
 		// 判断如果卷所在磁盘是镜像副本，那就过滤
@@ -571,31 +1655,32 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 
 		char DiskGuidC[64];
 		WcharToChar(pVolumeInfo->m_DiskGUID->c_str(),DiskGuidC,sizeof(DiskGuidC));
-		m_pTempXML->AddXMLVolElement("ClientPhyDisk","PartitionVolume",DiskGuidC);
+		m_pTempXML->AddXMLVolElement("DiskList","Partition",DiskGuidC);
 
 		WcharToChar((wchar_t*)pVolumeInfo->m_Protected.c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("PartitionVolume","IsProtected",temp);
+		m_pTempXML->AddXMLAttribute("Partition","IsProtected",temp);
 
-		_i64toa_s(pVolumeInfo->m_VolumeSize,temp,sizeof(temp),10);
-		m_pTempXML->AddXMLAttribute("PartitionVolume","Size",temp);
+		sizeTemp = pVolumeInfo->m_VolumeSize /2/1024;
+		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
+		m_pTempXML->AddXMLAttribute("Partition","Size",temp);
 
-		_i64toa_s(pVolumeInfo->m_UsedSpace,temp,sizeof(temp),10);
-		m_pTempXML->AddXMLAttribute("PartitionVolume","UsedSize",temp);
+		sizeTemp = pVolumeInfo->m_UsedSpace /2/1024;
+		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
+		m_pTempXML->AddXMLAttribute("Partition","Used",temp);
 
 		WcharToChar((wchar_t*)pVolumeInfo->m_GUID->c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("PartitionVolume","Guid",temp);
+		m_pTempXML->AddXMLAttribute("Partition","Guid",temp);
 
 		WcharToChar((wchar_t*)pVolumeInfo->m_VolumeLable->c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("PartitionVolume","Index",temp);
+		m_pTempXML->AddXMLAttribute("Partition","name",temp);
 
 		_itoa_s(pVolumeInfo->m_FileSys,temp,sizeof(temp),10);
-		m_pTempXML->AddXMLAttribute("PartitionVolume","FileSys",temp);
+		m_pTempXML->AddXMLAttribute("Partition","FS",temp);
 
-		WcharToChar((wchar_t*)pVolumeInfo->m_DiskGUID->c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("PartitionVolume","InPhyDiskGuid",temp);
+		/*WcharToChar((wchar_t*)pVolumeInfo->m_DiskGUID->c_str(),temp,sizeof(temp));
+		m_pTempXML->AddXMLAttribute("Partition","InPhyDiskGuid",temp);*/
 
-		m_pTempXML->AddXMLAttribute("PartitionVolume","ClientID",ClientID);
-		m_pTempXML->AddXMLAttribute("PartitionVolume","State","1");
+		m_pTempXML->AddXMLAttribute("Partition","State","1");
 		
 
 		index++;
@@ -607,60 +1692,54 @@ void COsnMirrorCopyXML::RefreshDiskListXML()
 	for( int i=0;i<this->pDiskList->GetLength();i++)
 	{
 		char temp[128];
+		unsigned __int64 sizeTemp = 0;
 		CDiskInfo *pDiskInfo = (CDiskInfo *)(this->pDiskList->GetItem(i));
 
-		m_pTempXML->AddXMLDisElement("Client","ClientPhyDisk");
+		m_pTempXML->AddXMLElement("Client","DiskList");
 
 		WcharToChar((wchar_t*)pDiskInfo->m_Protected.c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","IsProtected",temp);
+		m_pTempXML->AddXMLAttribute("DiskList","IsProtected",temp);
 
-		_i64toa_s(pDiskInfo->m_DiskSize,temp,sizeof(temp),10);
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Size",temp);
+		sizeTemp = pDiskInfo->m_DiskSize /2/1024;
+		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
+		m_pTempXML->AddXMLAttribute("DiskList","Size",temp);
+
+		sizeTemp = pDiskInfo->m_UsedSpace /2/1024;
+		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
+		m_pTempXML->AddXMLAttribute("DiskList","Used",temp);
 
 		_itoa_s(pDiskInfo->m_DiskIndex,temp,sizeof(temp),10);
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Index",temp);
+		m_pTempXML->AddXMLAttribute("DiskList","Name",temp);
 
 		WcharToChar((wchar_t*)pDiskInfo->m_Guid->c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Guid",temp);
+		m_pTempXML->AddXMLAttribute("DiskList","Guid",temp);
 
-		WcharToChar((wchar_t*)pDiskInfo->m_DiskOEM->c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Oem",temp);
+		/*WcharToChar((wchar_t*)pDiskInfo->m_DiskOEM->c_str(),temp,sizeof(temp));
+		m_pTempXML->AddXMLAttribute("DiskList","Oem",temp);*/
 
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","ClientID",ClientID);
-
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Format","MBR");
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","Style","0");
-		m_pTempXML->AddXMLAttribute("ClientPhyDisk","State","1");
+		m_pTempXML->AddXMLAttribute("DiskList","FS","0");
+		m_pTempXML->AddXMLAttribute("DiskList","State","1");
 
 	}
 }
 
 void COsnMirrorCopyXML::RefreshClientXML()
 {
-	char hostname[32],ipAddress[32],SysVersion[32]; 
-	DWORD dw = pOSNService->m_OSNRpcServer.OSNRpcGetBasicInfo(hostname,ipAddress,SysVersion);
+	char hostname[32],*ipAddress = NULL,SysVersion[32]; 
+	DWORD dw = pOSNService->m_OSNRpcServer.OSNRpcGetBasicInfo(hostname,&ipAddress,SysVersion);
 
 	m_pTempXML->AddXMLElement("Client");
 
-	if(pOSNService->m_OSNRpcServer.m_IsProtected == true)
-	{
-		m_pTempXML->AddXMLAttribute("Client","IsProtected","true");
-	}
-	else
-	{
-		m_pTempXML->AddXMLAttribute("Client","IsProtected","false");
-	}
-
-	m_pTempXML->AddXMLAttribute("Client","ClientID",ClientID);
-	m_pTempXML->AddXMLAttribute("Client","State","0");
-	m_pTempXML->AddXMLAttribute("Client","Name",hostname);
-	m_pTempXML->AddXMLAttribute("Client","IpAddr",ipAddress);
-	m_pTempXML->AddXMLAttribute("Client","ManagerServIP",pOSNService->m_OSNRpcServer.m_ServerIP);
-	m_pTempXML->AddXMLAttribute("Client","SystemType","1");
+	m_pTempXML->AddXMLAttribute("Client","ID",m_ClientID);
+	m_pTempXML->AddXMLAttribute("Client","IPs",ipAddress);
+	m_pTempXML->AddXMLAttribute("Client","HostName",hostname);
+	m_pTempXML->AddXMLAttribute("Client","SystemType",SYS_TYPE_WINDOWS);
 	m_pTempXML->AddXMLAttribute("Client","SystemVersion",SysVersion);
 
-	m_pTempXML->AddXMLAttribute("Client","Database","0");
-	m_pTempXML->AddXMLAttribute("Client","DatabaseVersion","0");
+	if(ipAddress != NULL)
+	{
+		delete(ipAddress);
+	}
 }
 
 DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool MirrorType)
@@ -1302,16 +2381,16 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 		IWbemLocator           *m_pLoc = NULL;
 		IEnumWbemClassObject   *pEnumerator = NULL;
 
-		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
+		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return 3;
 		}
 
 		HRESULT hres;
-		wchar_t  pWQL[32];
+		wchar_t  pWQL[128];
 		swprintf_s(pWQL,_countof(pWQL),L"Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition",label->c_str());
 
 		hres = m_pSvc->ExecQuery(
@@ -1324,7 +2403,7 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 		if (FAILED(hres))
 		{
 			printf("pSvc->ExecQuery error\n");
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return 3;               // Program has failed.
 		}
 		IWbemClassObject *pclsObj;
@@ -1340,15 +2419,17 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 			}
 
 			VARIANT vtProp;
-			pclsObj->Get(L"Bootable", 0, &vtProp, 0, 0);
-			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
-            DWORD dw = _wtoi(VolumeLabel->c_str());
-			delete(VolumeLabel);
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
-			return dw;
+			if(S_OK == pclsObj->Get(L"Bootable", 0, &vtProp, 0, 0))
+			{
+				DWORD dw = vtProp.boolVal;
+				pclsObj->Release();
+				OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+				VariantClear(&vtProp);
+				return dw;
+			}
 		}
-		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
-		return false;
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return -1;
 	/*}
 	catch(Exception^ ex)
 	{
@@ -1476,6 +2557,8 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 
 		CNewMirror *pNewMirror = new CNewMirror(pSelectDisk,this->pDiskList,pVolumeList);
 
+		pNewMirror->MirrorOKClick(pSrcGuid,pDesGuid);
+
 		MIRROR_INFO MirrorInfo;
 
 		//try
@@ -1571,52 +2654,68 @@ void COsnMirrorCopyXML::WriteConfigurationFile()
 {
 	//try
 	//{
-		//char pImagePath[256];
-		//WcharToChar((wchar_t*)ImagePath->c_str(),pImagePath);
-		//strcat(pImagePath,"\\OSNHostMirror.cfg");
+		char pImagePath[256];
+		char temp[256];
+		fstream fi;
+		ofstream fo;
 
-		//fstream fi(pImagePath,ios::in|ios::out);
-		//if(!fi->Exists)
-		//{
-		//	return;
-		//}
+		WcharToChar((wchar_t*)ImagePath->c_str(),pImagePath,sizeof(pImagePath));
+		strcat_s(pImagePath,"\\OSNHostMirror.cfg");
+		strcat_s(pImagePath,"\\OSNHostMirror.cfg.bak");
 
-		//fi->CopyTo(String::Concat(ImagePath, L"\\OSNHostMirror.cfg.bak"), true);
+		fi.open(pImagePath,ios::in | ios::out);
+		fo.open(temp);
+		fo << fi.rdbuf();
+		fo.close();
+		fi.close();
+		
+		fi.open(pImagePath,ios::in | ios::out | ios::trunc);
 
-		//FileStream	^fs = fi->Open(FileMode::Create); 
-		//StreamWriter	^sw = gcnew StreamWriter(fs); 
-		//sw->AutoFlush = true;
+		int i;
+		for(i=0; i<this->pDiskMirrorList->GetLength(); i++)
+		{
+			CMirrorInfo *pMirrorInfo = (CMirrorInfo *)(pDiskMirrorList->GetItem(i));
+			
+			WcharToChar(pMirrorInfo->m_SourceGuid->c_str(),temp,sizeof(temp));
+			fi << "DiskMirrorInfo="<<temp<<";";
 
-		//int i;
-		//for(i=0; i<this->pDiskMirrorList->GetLength(); i++)
-		//{
-		//	CMirrorInfo *pMirrorInfo = (CMirrorInfo *)(pDiskMirrorList->GetItem(i));
-		//	
-		//	wstring *strLine = String::Concat("DiskMirrorInfo=", pMirrorInfo->m_SourceGuid, ";");
-		//	strLine = String::Concat(strLine, pMirrorInfo->m_TargetGuid, ";");
-		//	strLine = String::Concat(strLine, pMirrorInfo->m_EIMMode.ToString(),";");
-		//	strLine = String::Concat(strLine,pMirrorInfo->m_IsCluster.ToString(),";");
-		//	strLine = String::Concat(strLine,pMirrorInfo->m_ClusterResourceName);
-		//	sw->WriteLine(strLine);
-		//}
+			WcharToChar(pMirrorInfo->m_TargetGuid->c_str(),temp,sizeof(temp));
+			fi << temp<<";";
 
-		//for(i=0; i<this->pVolumeMirrorList->GetLength(); i++)
-		//{
-		//	CMirrorInfo *pMirrorInfo = (CMirrorInfo *)(pVolumeMirrorList->GetItem(i));
+			_itoa_s(pMirrorInfo->m_EIMMode,temp,10);
+			fi << temp<<";";
 
-		//	String ^strLine = String::Concat("VolumeMirrorInfo=", pMirrorInfo->m_SourceGuid, ";");
-		//	//strLine = String::Concat(strLine, pMirrorInfo->m_SourceOffset.ToString("X8"), ";");
-		//	strLine = String::Concat(strLine, pMirrorInfo->m_TargetGuid, ";");
-		//	//strLine = String::Concat(strLine, pMirrorInfo->m_TargetOffset.ToString("X8"), ";");
-		//	strLine = String::Concat(strLine, pMirrorInfo->m_EIMMode.ToString(),";");
-		//	strLine = String::Concat(strLine,pMirrorInfo->m_IsCluster.ToString(),";");
-		//	strLine = String::Concat(strLine,pMirrorInfo->m_ClusterResourceName);
-		//	sw->WriteLine(strLine);
-		//	/*sw->WriteLine("VolumeMirrorInfo={0:G};{1:G};{2:G};{3:G};{4:G}", pMirrorInfo->m_SourceDiskSignature.ToString("X8"),
-		//	pMirrorInfo->m_SourceOffset.ToString("X8"), pMirrorInfo->m_TargetDiskSignature.ToString("X8"), 
-		//	pMirrorInfo->m_TargetOffset.ToString("X8"), pMirrorInfo->m_EIMMode.ToString());*/
-		//}
-		//sw->Close();
+			_itoa_s(pMirrorInfo->m_IsCluster,temp,10);
+			fi << temp<<";";
+			
+			WcharToChar(pMirrorInfo->m_ClusterResourceName->c_str(),temp,sizeof(temp));
+			fi << temp;
+
+			fi << endl;
+		}
+
+		for(i=0; i<this->pVolumeMirrorList->GetLength(); i++)
+		{
+			CMirrorInfo *pMirrorInfo = (CMirrorInfo *)(pVolumeMirrorList->GetItem(i));
+
+			WcharToChar(pMirrorInfo->m_SourceGuid->c_str(),temp,sizeof(temp));
+			fi << "VolumeMirrorInfo="<<temp<<";";
+
+			WcharToChar(pMirrorInfo->m_TargetGuid->c_str(),temp,sizeof(temp));
+			fi << temp<<";";
+
+			_itoa_s(pMirrorInfo->m_EIMMode,temp,10);
+			fi << temp<<";";
+
+			_itoa_s(pMirrorInfo->m_IsCluster,temp,10);
+			fi << temp<<";";
+			
+			WcharToChar(pMirrorInfo->m_ClusterResourceName->c_str(),temp,sizeof(temp));
+			fi << temp;
+
+			fi << endl;
+		}
+		fi.close();
 	/*}
 	catch(Exception^ exx)
 	{
@@ -1741,5 +2840,213 @@ DWORD COsnMirrorCopyXML::SetRegistryKey(char *ServiceKeyName,char *SourceString,
 	delete(pRebootKey);
 
 	return 0;
+}
 
+bool CWmi::Init(wchar_t *lpszWMIObj,  wchar_t *lpszWhere)
+{  
+	if (!lpszWMIObj || wcslen(lpszWMIObj)==0) return false;  
+
+	HRESULT hr;  
+
+	// Initialize   
+
+	hr = CoCreateInstance(  
+		CLSID_WbemLocator,               
+		0,   
+		CLSCTX_INPROC_SERVER,   
+		IID_IWbemLocator, (LPVOID *) &m_pLoc  
+		);  
+
+	if (FAILED(hr)) return false;  
+
+
+	hr = m_pLoc->ConnectServer(  
+
+		_bstr_t(m_WmiClass), // WMI namespace  
+		NULL,                    // User name  
+		NULL,                    // User password  
+		0,                       // Locale  
+		NULL,                    // Security flags                   
+		0,                       // Authority         
+		0,                       // Context object  
+		&m_pSvc                    // IWbemServices proxy  
+		);  
+
+	if (FAILED(hr)) return false;  
+
+	hr = CoSetProxyBlanket(  
+
+		m_pSvc,                         // the proxy to set  
+		RPC_C_AUTHN_WINNT,            // authentication service  
+		RPC_C_AUTHZ_NONE,             // authorization service  
+		NULL,                         // Server principal name  
+		RPC_C_AUTHN_LEVEL_CALL,       // authentication level  
+		RPC_C_IMP_LEVEL_IMPERSONATE,  // impersonation level  
+		NULL,                         // client identity   
+		EOAC_NONE                     // proxy capabilities       
+		);  
+
+	if (FAILED(hr)) return false;  
+
+	hr = m_pSvc->GetObject(  
+		bstr_t(lpszWMIObj),  
+		WBEM_FLAG_RETURN_WBEM_COMPLETE,  
+		NULL,  
+		&m_pclsObj,  
+		NULL);  
+
+	if (FAILED(hr)) return false;  
+
+
+	//构造WQL语句  
+	bstr_t wql="SELECT * FROM ";  
+	wql+=lpszWMIObj;  
+
+	if (lpszWhere && wcslen(lpszWhere))  
+	{  
+		wql+=" WHERE ";  
+		wql+=lpszWhere;  
+	}  
+
+	//查询对象  
+	hr = m_pSvc->ExecQuery(  
+		bstr_t("WQL"),   
+		wql,  
+		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_RETURN_WBEM_COMPLETE,  
+		NULL,  
+		&m_pclsEnum);  
+
+	if (FAILED(hr)) return false;  
+
+
+	//遍历对象，存入Vector数组方便使用  
+	while (m_pclsEnum)  
+	{  
+
+		ULONG uReturn = 0;  
+		IWbemClassObject *pclsObj=NULL;  
+
+		hr = m_pclsEnum->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);  
+
+		if(0 == uReturn)  
+		{  
+			break;  
+		}  
+
+		if (pclsObj) m_clslist.push_back(pclsObj);  
+	}  
+
+
+	return true;  
+}
+
+//释放COM对象  
+void CWmi::Release()  
+{  
+	for (vector<IWbemClassObject *>::iterator i=m_clslist.begin();i!=m_clslist.end();i++)  
+	{  
+		(*i)->Release();  
+	}  
+
+	if (m_pclsEnum)  
+	{  
+		m_pclsEnum->Release();  
+		m_pclsEnum=NULL;  
+	}  
+
+	if (m_pSvc)  
+	{  
+		m_pSvc->Release();  
+		m_pSvc=NULL;  
+	}  
+
+	if (m_pLoc)  
+	{  
+		m_pLoc->Release();  
+		m_pLoc=NULL;  
+	}  
+
+}  
+
+//获取对象的方法  
+HRESULT  CWmi::GetMethod(LPCTSTR lpszMethodName, IWbemClassObject **ppIn)  
+{  
+	if (m_pclsObj )  
+	{  
+		return m_pclsObj->GetMethod(bstr_t(lpszMethodName), 0, ppIn, NULL);  
+	}  
+
+	return SEVERITY_ERROR;  
+}  
+
+//SAFEARRAY数组转bstr_t  
+bstr_t   CWmi::SafeArrayToString(SAFEARRAY *psa)  
+{  
+	bstr_t rstr;  
+
+	VARIANT* pData=NULL;  
+
+	VARTYPE vt;  
+
+	SafeArrayGetVartype(psa,&vt);  
+
+	int numElements = psa->rgsabound[0].cElements - psa->rgsabound[0].lLbound;   
+
+	HRESULT hr=SafeArrayAccessData(psa,(void HUGEP**)&pData);  
+
+	if(SUCCEEDED(hr))  
+	{  
+		for(int idx=0; idx < numElements; idx++)  
+		{  
+			if (vt==VT_BSTR)  
+			{  
+				rstr += ((BSTR *)(pData))[idx];  
+			}  
+		}  
+		hr = SafeArrayUnaccessData(psa);  
+	}  
+
+	return rstr;  
+}  
+
+UCHAR *  CWmi::SafeArrayToUInt8(SAFEARRAY *psa,int * charSize)
+{
+	UCHAR     *uchar;
+	VARIANT*   pData=NULL;
+	VARTYPE    vt;
+	SafeArrayGetVartype(psa,&vt);  
+
+	int numElements = psa->rgsabound[0].cElements - psa->rgsabound[0].lLbound;  
+	uchar = new UCHAR[numElements];
+	*charSize = numElements;
+
+	HRESULT hr=SafeArrayAccessData(psa,(void HUGEP**)&pData);  
+	if(SUCCEEDED(hr))  
+	{  
+		for(int idx=0; idx < numElements; idx++)  
+		{  
+			if (vt==VT_UI1)  
+			{  
+				uchar[idx] = ((UCHAR *)(pData))[idx];  
+			}  
+		}  
+		hr = SafeArrayUnaccessData(psa);  
+	}  
+
+	return uchar;
+}
+
+
+bool CWmi::GetObjectProp(int iObj, LPCTSTR lpszPropName,_variant_t *vtProp,VARTYPE varType)
+{
+	if((unsigned int)iObj < m_clslist.size())
+	{
+		HRESULT hr = m_clslist[iObj]->Get(bstr_t(lpszPropName), 0, vtProp, 0, 0);
+		if (SUCCEEDED(hr) && vtProp->vt == varType)  
+		{ 
+			return true;
+		}
+	}
+
+	return false;
 }

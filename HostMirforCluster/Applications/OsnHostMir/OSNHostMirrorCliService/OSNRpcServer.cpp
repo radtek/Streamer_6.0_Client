@@ -17,8 +17,10 @@
 #include "OSNRpcServer.h"
 
 #include "OSNService.h"
+#include <Iphlpapi.h>
+#include <iostream>
 
-
+# pragma comment(lib, "Iphlpapi.lib")
 
 extern	COSNService			*pOSNService;
 
@@ -326,12 +328,72 @@ DWORD COSNRpcServer::OSNRpcGetSysVersion(char *pSysVersion)
 	return EXIT_SUCCESS;
 }
 
-DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char *pIpAddress,char *pSysVersion)
+char * COSNRpcServer::OSNRpcGetIPsInfo()
 {
-	ULONG                         IPAddress;
+	PIP_ADAPTER_INFO pIpAdapterInfoMir = NULL;
+	PIP_ADAPTER_INFO pIpAdapterInfo = new IP_ADAPTER_INFO();
+	DWORD  IPCount = 0;
+	char   *IPlist = NULL;
+
+	unsigned long stSize = sizeof(IP_ADAPTER_INFO);
+	int nRel = GetAdaptersInfo(pIpAdapterInfo,&stSize);
+
+	if (ERROR_BUFFER_OVERFLOW==nRel)
+	{
+		delete pIpAdapterInfo;
+
+		pIpAdapterInfo = (PIP_ADAPTER_INFO)new BYTE[stSize];
+
+		nRel=GetAdaptersInfo(pIpAdapterInfo,&stSize);    
+	}
+	if (ERROR_SUCCESS==nRel)
+	{
+		//输出网卡信息,可能有多网卡,因此通过循环去判断
+		pIpAdapterInfoMir = pIpAdapterInfo; 
+		while (pIpAdapterInfoMir)
+		{
+				//可能网卡有多IP,因此通过循环去判断
+				IP_ADDR_STRING *pIpAddrString =&(pIpAdapterInfoMir->IpAddressList);
+				do 
+				{
+					//cout<<pIpAddrString->IpAddress.String<<endl;
+					IPCount++;
+					pIpAddrString=pIpAddrString->Next;
+				} while (pIpAddrString);
+
+				pIpAdapterInfoMir = pIpAdapterInfoMir->Next;
+		}
+
+		IPlist = new char[17*IPCount];
+		memset(IPlist,'\0',17*IPCount);
+
+		pIpAdapterInfoMir = pIpAdapterInfo; 
+		while (pIpAdapterInfoMir)
+		{
+				//可能网卡有多IP,因此通过循环去判断
+				IP_ADDR_STRING *pIpAddrString =&(pIpAdapterInfoMir->IpAddressList);
+				do 
+				{
+					strcat(IPlist,pIpAddrString->IpAddress.String);
+					strcat(IPlist," ");
+					pIpAddrString=pIpAddrString->Next;
+				} while (pIpAddrString);
+
+				pIpAdapterInfoMir = pIpAdapterInfoMir->Next;
+		}
+	}
+	//释放内存空间
+	if (pIpAdapterInfo)
+	{
+		delete pIpAdapterInfo;
+	}
+	return IPlist;
+}
+
+DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,char *pSysVersion)
+{
 	char                          *phostName = NULL;
-	char                          *IpAddress;
-	struct	in_addr               sin_addr; 
+	DWORD                         dw;
 
 	phostName = pOSNService->GetHostName();
 	if(phostName == NULL)
@@ -340,18 +402,7 @@ DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char *pIpAddress,char *p
 	}
 	strcpy(pHostname,phostName);
 
-	DWORD dw = pOSNService->GetIPAddressByHostName(phostName,&IPAddress);
-	if(0 != dw)
-	{
-		return EXIT_FAILURE;
-	}
-	sin_addr.S_un.S_addr = IPAddress;
-	IpAddress = inet_ntoa(sin_addr);
-	if(IpAddress == NULL)
-	{
-		return EXIT_FAILURE;
-	}
-	strcpy(pIpAddress,IpAddress);
+	*pIpAddress = OSNRpcGetIPsInfo();
 
 	dw = OSNRpcGetSysVersion(pSysVersion);
 	if(dw == EXIT_FAILURE)
@@ -363,9 +414,19 @@ DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char *pIpAddress,char *p
 
 DWORD COSNRpcServer::OSNRpcSetServiceInfo()
 {
-	m_IsProtected = false;
-	memset(m_ServerIP,0,sizeof(m_ServerIP));
-	memset(m_pCopyXML->ClientID,0,sizeof(m_pCopyXML->ClientID));
+	char pTargetIP[16];
+	m_pCopyXML->MoveNext(m_pCopyXML->m_TargetIPs,pTargetIP,' ');
+	m_pCopyXML->DisConnectiSCSIChannel(pTargetIP,m_pCopyXML->m_TargetIqn);
+
+	m_pCopyXML->m_IsProtected = false;
+	m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_pCopyXML->m_IsProtected,BoolKey);
+
+	memset(m_pCopyXML->m_ServerIP,0,strlen(m_pCopyXML->m_ServerIP));
+	m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP","0",StringKey);
+
+	memset(m_pCopyXML->m_ServerID,0,strlen(m_pCopyXML->m_ServerID));
+	m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID","0",StringKey);
+	
 	return EXIT_SUCCESS;
 }
 
@@ -386,15 +447,15 @@ DWORD COSNRpcServer::OSNRpcRemoveMirror(DWORD pXML)
 	{
 		pXMLTemp->LoadFile(pUnicode);
 
-		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","SrcGUID",SrcGUIDC);
 		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
 		pSrc = new wstring(SrcGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","DesGUID",DesGUIDC);
 		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,sizeof(DesGUIDW));
 		pDes = new wstring(DesGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		pXMLTemp->GetXMLNodeText("Streamer","DiskType",MirrorTypeC);
 		if(strcmp(MirrorTypeC,"0") == 0)
 		{
 			MirrorTypeB = 0;//volume
@@ -437,15 +498,15 @@ DWORD COSNRpcServer::OSNRpcGetInitMirrorRate(DWORD pXML)
 	{
 		pXMLTemp->LoadFile(pUnicode);
 
-		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","SrcGUID",SrcGUIDC);
 		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
 		pSrc = new wstring(SrcGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","DesGUID",DesGUIDC);
 		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,_countof(DesGUIDW));
 		pDes = new wstring(DesGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		pXMLTemp->GetXMLNodeText("Streamer","DiskType",MirrorTypeC);
 		if(strcmp(MirrorTypeC,"0") == 0)
 		{
 			MirrorTypeB = 0;//volume
@@ -468,6 +529,37 @@ DWORD COSNRpcServer::OSNRpcGetInitMirrorRate(DWORD pXML)
 	return 0;//m_pCopyXML->GetInitMirrorRate(pSrc,pDes,MirrorTypeB);
 }
 
+DWORD COSNRpcServer::OSNRpcGetiSCSIChannel(DWORD pXML)
+{
+	DWORD   dw = 0;
+	wchar_t pUnicode[256];
+	char    TargetIP[20];
+
+	memset(pUnicode,0,256*sizeof(wchar_t));
+
+	COSNxml *pXMLTemp = new COSNxml();
+	
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel","TargetIqn",&m_pCopyXML->m_TargetIqn);
+		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",m_pCopyXML->m_TargetIqn,StringKey);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel/Path","TargetIP",&m_pCopyXML->m_TargetIPs);
+		m_pCopyXML->MoveNext(m_pCopyXML->m_TargetIPs,TargetIP,' ');
+
+		dw = m_pCopyXML->ConnectiSCSIChannel(TargetIP,m_pCopyXML->m_TargetIqn);
+	}
+	else
+	{
+		delete(pXMLTemp);
+		return EXIT_FAILURE;
+	}
+
+	return dw;
+}
+
 DWORD COSNRpcServer::OSNRpcInitMirror(DWORD pXML)
 {
 	bool MirrorTypeB;
@@ -485,15 +577,15 @@ DWORD COSNRpcServer::OSNRpcInitMirror(DWORD pXML)
 	{
 		pXMLTemp->LoadFile(pUnicode);
 
-		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","SrcGUID",SrcGUIDC);
 		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
 		pSrc = new wstring(SrcGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","DesGUID",DesGUIDC);
 		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,_countof(DesGUIDW));
 		pDes = new wstring(DesGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		pXMLTemp->GetXMLNodeText("Streamer","DiskType",MirrorTypeC);
 		if(strcmp(MirrorTypeC,"0") == 0)
 		{
 			MirrorTypeB = 0;//volume
@@ -538,15 +630,15 @@ DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
 	{
 		pXMLTemp->LoadFile(pUnicode);
 
-		pXMLTemp->GetXMLNodeText("streamer","SrcGUID",SrcGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","SrcGUID",SrcGUIDC);
 		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
 		pSrc = new wstring(SrcGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","DesGUID",DesGUIDC);
+		pXMLTemp->GetXMLNodeText("Streamer","DesGUID",DesGUIDC);
 		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,_countof(DesGUIDW));
 		pDes = new wstring(DesGUIDW);
 
-		pXMLTemp->GetXMLNodeText("streamer","MirrorType",MirrorTypeC);
+		pXMLTemp->GetXMLNodeText("Streamer","DiskType",MirrorTypeC);
 		if(strcmp(MirrorTypeC,"0") == 0)
 		{
 			MirrorTypeB = 0;//volume
@@ -583,9 +675,14 @@ DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
 	{
 		pXMLTemp->LoadFile(pUnicode);
 
-		pXMLTemp->GetXMLNodeText("streamer","IpAddr",m_ServerIP);
-		m_IsProtected = true;
-		m_pCopyXML->CreateClientID();
+		m_pCopyXML->m_IsProtected = true;
+		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_pCopyXML->m_IsProtected,BoolKey);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","ID",&m_pCopyXML->m_ServerIP);
+		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP",m_pCopyXML->m_ServerIP,StringKey);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","IPs",&m_pCopyXML->m_ServerID);
+		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID",m_pCopyXML->m_ServerID,StringKey);
 		
 		status = EXIT_SUCCESS;
 	}
@@ -605,6 +702,7 @@ DWORD COSNRpcServer::OSNRpcGetClientInfo()
 	m_pCopyXML->RefreshClientXML();
 	m_pCopyXML->RefreshDiskListXML();
 	m_pCopyXML->RefreshVolumeListXML();
+	m_pCopyXML->RefreshChannelListXML();
 
 	return EXIT_SUCCESS;
 }
@@ -613,48 +711,65 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 {
 	bool                          status  = false;
 	DWORD                         dw;
-	wchar_t                       *pXMLText = (wchar_t*)((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+	char                          *pXMLText = (char*)((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 
 	switch(pMsgHeader->cmd)
 	{
-	case OSN_REMOTE_CMD_FINDNEWCLIENT:
+	case ST_OP_SCAN_CLIENT:
 		{
 			COSNxml *pXMLTemp = new COSNxml();
-			pXMLTemp->CreateXMLFile("streamer");
-			char hostname[128],ipAddress[32],SysVersion[64]; 
+			pXMLTemp->CreateXMLFile("Streamer");
+			char hostname[128],SysVersion[64],*IPs = NULL; 
 
-			dw = OSNRpcGetBasicInfo(hostname,ipAddress,SysVersion);
-			if(EXIT_SUCCESS == dw)
+			if(m_pCopyXML->m_IsProtected == false)
 			{
-				pXMLTemp->AddXMLElement("Client");
-				pXMLTemp->AddXMLAttribute("Client","Name",hostname);
-				pXMLTemp->AddXMLAttribute("Client","IpAddr",ipAddress);
-				pXMLTemp->AddXMLAttribute("Client","SystemType","1");
-				pXMLTemp->AddXMLAttribute("Client","SystemVersion",SysVersion);
-				DWORD size = pXMLTemp->GetXMLText(pXMLText);
+				dw = OSNRpcGetBasicInfo(hostname,&IPs,SysVersion);
+				if(EXIT_SUCCESS == dw)
+				{
+					pXMLTemp->AddXMLElement("Client");
+					pXMLTemp->AddXMLAttribute("Client","Name",hostname);
+					pXMLTemp->AddXMLAttribute("Client","IPs",IPs);
+					pXMLTemp->AddXMLAttribute("Client","SystemType",SYS_TYPE_WINDOWS);
+					pXMLTemp->AddXMLAttribute("Client","SystemVersion",SysVersion);
+					pXMLTemp->AddXMLAttribute("Client","ID",m_pCopyXML->m_ClientID);
+					DWORD size = pXMLTemp->GetXMLText(pXMLText);
 
-				pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_SUCCESS;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = size;
+					pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
+					pMsgHeader->rtnStatus = ST_RES_SUCCESS;
+					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+					pMsgHeader->dataLength = size;
+				}
+				else
+				{
+					pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
+					pMsgHeader->rtnStatus = ST_RES_FAILED;
+					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+					pMsgHeader->dataLength = 0;
+				}
+				if(IPs != NULL)
+				{
+					delete(IPs);
+				}
 			}
 			else
 			{
 				pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
 				pMsgHeader->dataLength = 0;
 			}
+
 			delete(pXMLTemp);
 		}
 		break;
 
-	case OSN_REMOTE_CMD_SETADDCLIENTMARK:
+	case ST_OP_ADD_CLIENTS:
 		{
 			m_pCopyXML->m_pTempXML = new COSNxml();
-			m_pCopyXML->m_pTempXML->CreateXMLFile("streamer");
+			m_pCopyXML->m_pTempXML->CreateXMLFile("Streamer");
 
 			dw = OSNRpcGetServiceInfo((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
@@ -664,94 +779,73 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				{
 					DWORD size = m_pCopyXML->m_pTempXML->GetXMLText(pXMLText);
 
-					pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_SUCCESS;
+					pMsgHeader->rtnStatus = ST_RES_SUCCESS;
 					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
 					pMsgHeader->dataLength = size;
 				}
 				else
 				{
-					m_pCopyXML->m_pTempXML->AddXMLElement("Error");
-					m_pCopyXML->m_pTempXML->AddXMLAttribute("Error","Errcode","0");
-					m_pCopyXML->m_pTempXML->AddXMLAttribute("Error","Errorsummary","0");
-					m_pCopyXML->m_pTempXML->AddXMLAttribute("Error","Errorinfo","0");
-					DWORD size = m_pCopyXML->m_pTempXML->GetXMLText(pXMLText);
-
-					pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+					pMsgHeader->rtnStatus = ST_RES_FAILED;
 					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-					pMsgHeader->dataLength = size;
+					pMsgHeader->dataLength = 0;
 				}
 			}
 			else
 			{
-				m_pCopyXML->m_pTempXML->AddXMLElement("Error");
-				m_pCopyXML->m_pTempXML->AddXMLAttribute("Error","Errcode","0");
-				m_pCopyXML->m_pTempXML->AddXMLAttribute("Error","Errorsummary","0");
-				m_pCopyXML->m_pTempXML->AddXMLAttribute("Error","Errorinfo","0");
-				DWORD size = m_pCopyXML->m_pTempXML->GetXMLText(pXMLText);
-
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = size;
+				pMsgHeader->dataLength = 0;
 			}
 			delete(m_pCopyXML->m_pTempXML);
 		}
 		break;
 
-	case OSN_REMOTE_CMD_SETREMOVECLIENTMARK:
+	case ST_OP_DEL_CLIENTS:
 		{
 			COSNxml *pXMLTemp = new COSNxml();
-			pXMLTemp->CreateXMLFile("streamer");
+			pXMLTemp->CreateXMLFile("Streamer");
 
 			dw = OSNRpcSetServiceInfo();
 			if(EXIT_SUCCESS == dw)
 			{
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_SUCCESS;
+				pMsgHeader->rtnStatus = ST_RES_SUCCESS;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
 				pMsgHeader->dataLength = 0;
 			}
 			else
 			{
-				pXMLTemp->AddXMLElement("Error");
-				pXMLTemp->AddXMLAttribute("Error","Errcode","0");
-				pXMLTemp->AddXMLAttribute("Error","Errorsummary","0");
-				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
-				DWORD size = pXMLTemp->GetXMLText(pXMLText);
-
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = size;
+				pMsgHeader->dataLength = 0;
 			}
 			delete(pXMLTemp);
 		}
 		break;
 
-	case OSN_REMOTE_CMD_CREATEMIRROR:
+	case ST_OP_ADD_BACKUP:
 		{
 			COSNxml *pXMLTemp = new COSNxml();
-			pXMLTemp->CreateXMLFile("streamer");
+			pXMLTemp->CreateXMLFile("Streamer");
 
 			dw = OSNRpcSetMirror((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
 			{
-				
+				pMsgHeader->rtnStatus = ST_RES_SUCCESS;
+				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+				pMsgHeader->dataLength = 0;
 			}
 			else
 			{
-				pXMLTemp->AddXMLElement("Error");
-				pXMLTemp->AddXMLAttribute("Error","Errcode","0");
-				pXMLTemp->AddXMLAttribute("Error","Errorsummary","0");
-				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
-				DWORD size = pXMLTemp->GetXMLText(pXMLText);
-
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = size;
+				pMsgHeader->dataLength = 0;
 			}
 			delete(pXMLTemp);
 		}
@@ -760,7 +854,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 	case OSN_REMOTE_CMD_REMOVEMIRROR:
 		{
 			COSNxml *pXMLTemp = new COSNxml();
-			pXMLTemp->CreateXMLFile("streamer");
+			pXMLTemp->CreateXMLFile("Streamer");
 
 			dw = OSNRpcRemoveMirror((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
@@ -775,7 +869,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
 				DWORD size = pXMLTemp->GetXMLText(pXMLText);
 
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
 				pMsgHeader->dataLength = size;
@@ -787,7 +881,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 	case OSN_REMOTE_CMD_INITMIRTOSERVER:
 		{
 			COSNxml *pXMLTemp = new COSNxml();
-			pXMLTemp->CreateXMLFile("streamer");
+			pXMLTemp->CreateXMLFile("Streamer");
 
 			dw = OSNRpcInitMirror((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
@@ -802,7 +896,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
 				DWORD size = pXMLTemp->GetXMLText(pXMLText);
 
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
 				pMsgHeader->dataLength = size;
@@ -814,7 +908,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 	case OSN_REMOTE_CMD_GETINITMIRFROMSERVER:
 		{
 			COSNxml *pXMLTemp = new COSNxml();
-			pXMLTemp->CreateXMLFile("streamer");
+			pXMLTemp->CreateXMLFile("Streamer");
 
 			dw = OSNRpcGetInitMirrorRate((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
@@ -829,10 +923,34 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
 				DWORD size = pXMLTemp->GetXMLText(pXMLText);
 
-				pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_FAILED;
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
 				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
 				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
 				pMsgHeader->dataLength = size;
+			}
+			delete(pXMLTemp);
+		}
+		break;
+
+	case ST_OP_ESTABLISH_CHANNELS:
+		{
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->CreateXMLFile("Streamer");
+
+			dw = OSNRpcGetiSCSIChannel((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+			if(EXIT_SUCCESS == dw)
+			{
+				pMsgHeader->rtnStatus = ST_RES_SUCCESS;
+				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+				pMsgHeader->dataLength = 0;
+			}
+			else
+			{
+				pMsgHeader->rtnStatus = ST_RES_FAILED;
+				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
+				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
+				pMsgHeader->dataLength = 0;
 			}
 			delete(pXMLTemp);
 		}
@@ -906,12 +1024,12 @@ bool COSNRpcServer::OSNRpcCmdSHUTDOWN(SOCKADDR_IN inSockAddr)
 bool COSNRpcServer::OSNRpcCmdPing()
 {
 
-	PHB_MESSAGE_HEADER		pMsgHeader = (PHB_MESSAGE_HEADER) m_sRecvMsg;
-	char				*pParaBuffer = &m_sRecvMsg[OSNRPC_HBMSGHEAD_LEN];
+	PHC_MESSAGE_HEADER		pMsgHeader = (PHC_MESSAGE_HEADER) m_sRecvMsg;
+	char				*pParaBuffer = &m_sRecvMsg[OSNRPC_HCMSGHEAD_LEN];
 
-	pMsgHeader->retStatus = CMD_HBSTATUS_SUCCESS;
+	//pMsgHeader->retStatus = CMD_HBSTATUS_SUCCESS;
 
-	pMsgHeader->paraNum		= 0;
+	//pMsgHeader->paraNum		= 0;
 	pMsgHeader->dataLength	= 0;
 
 	return true;
@@ -920,9 +1038,9 @@ bool COSNRpcServer::OSNRpcCmdPing()
 
 bool COSNRpcServer::OSNRpcCmdNotification(char *m_sRecvMsg)
 {
-	PHB_MESSAGE_HEADER msgHeader=(PHB_MESSAGE_HEADER)m_sRecvMsg;
+	PHC_MESSAGE_HEADER msgHeader=(PHC_MESSAGE_HEADER)m_sRecvMsg;
 
-	char				*pBuffer 	     = &m_sRecvMsg[OSNRPC_HBMSGHEAD_LEN];
+	char				*pBuffer 	     = &m_sRecvMsg[OSNRPC_HCMSGHEAD_LEN];
 	NOTIFICATION_OBJECT_LIST *pList=(NOTIFICATION_OBJECT_LIST *)(pBuffer);
 	NOTIFICATION_OBJECT *pNotification=NULL;
 	DWORD ErrorCode=0;
@@ -964,7 +1082,7 @@ bool COSNRpcServer::OSNRpcCmdNotification(char *m_sRecvMsg)
 		}
 	}
 
-	msgHeader->retStatus=CMD_HBSTATUS_SUCCESS;
+	//msgHeader->retStatus=CMD_HBSTATUS_SUCCESS;
 	msgHeader->dataLength=pList->m_Count*sizeof(NOTIFICATION_OBJECT)+sizeof(NOTIFICATION_OBJECT_LIST);
 	return true;
 }

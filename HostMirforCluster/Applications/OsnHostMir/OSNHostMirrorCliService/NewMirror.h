@@ -69,8 +69,8 @@ public:
 	DWORD CheckVolIsEIMVol(wstring *LabelName);
 	DWORD CharToWchar(const char *pChar,wchar_t *pWchar,int Length);
 	DWORD WcharToChar(const wchar_t *pWchar,char *pChar,int Length);
-	DWORD OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc);
-	DWORD OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator);
+	DWORD OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_t *pResName);
+	DWORD OSNCloseWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,IEnumWbemClassObject **pEnumerator);
 
 	void  VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid);
 	void  DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid);

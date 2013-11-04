@@ -210,7 +210,7 @@ public : unsigned __int64 GetBlocksBySignature(wstring *guid)
 			 for(DWORD i=0;i<m_pArrayList->size();i++)
 			 {
 				 pVolumeInfo = (CVolumeInfo *)(m_pArrayList->at(i));
-				 if(pVolumeInfo->m_GUID->compare(guid->c_str()) == 0)
+				 if(pVolumeInfo->m_DiskGUID->compare(guid->c_str()) == 0)
 				 {
 					 TotalSize= TotalSize+pVolumeInfo->m_VolumeSize;
 				 }

@@ -2,9 +2,9 @@
 #include "string"
 #include "OSNXml.h"
 
-DWORD  COSNxml::GetXMLText(WCHAR *Msg)
+DWORD  COSNxml::GetXMLText(char *Msg)
 {
-	return UnicodeToUTF_8(m_pDoc->xml,(char *)Msg);
+	return UnicodeToUTF_8(m_pDoc->xml,Msg);
 }
 
 DWORD COSNxml::UnicodeToUTF_8(wchar_t *pUnicode ,char *pUtf8)
@@ -50,7 +50,7 @@ DWORD  COSNxml::AddXMLAttribute(char *pNodeName,char *pAttributeName,char *pAttr
 	return EXIT_SUCCESS;
 }
 
-DWORD  COSNxml::AddXMLDisElement(char *pFatName,char *pSubName)
+DWORD  COSNxml::AddXMLElement(char *pFatName,char *pSubName)
 {
 	m_pNodeList = m_pRootElement->getElementsByTagName((_bstr_t)(char*)pFatName);
 	if(m_pNodeList->Getlength() == 0)
@@ -70,6 +70,24 @@ DWORD  COSNxml::AddXMLDisElement(char *pFatName,char *pSubName)
 	return EXIT_SUCCESS;
 }
 
+DWORD  COSNxml::AddXMLChannelElement(char *pFatName,char *pSubName)
+{
+	_variant_t  variantValue;
+
+	m_pNodeList = m_pRootElement->getElementsByTagName((_bstr_t)(char*)pFatName);
+	for(int i=0;i<m_pNodeList->Getlength();i++)
+	{
+		m_pNode = m_pNodeList->Getitem(i);
+		break;
+	}
+
+	m_pNodeSub = m_pDoc->createNode((_variant_t)(long)MSXML2::NODE_ELEMENT, (_bstr_t)(char*)pSubName, (_bstr_t)(char*)"");
+	m_pNode->appendChild(m_pNodeSub);
+
+	variantValue.Clear();
+	return EXIT_SUCCESS;
+}
+
 DWORD  COSNxml::AddXMLVolElement(char *pFatName,char *pSubName,char *pDiskGuid)
 {
 	_variant_t  variantValue;
@@ -83,19 +101,24 @@ DWORD  COSNxml::AddXMLVolElement(char *pFatName,char *pSubName,char *pDiskGuid)
 	for(int i=0;i<m_pNodeList->Getlength();i++)
 	{
 		m_pNode = m_pNodeList->Getitem(i);
-		m_pNode->get_attributes(&m_pAttrMap);
-		m_pAttrMap->get_item(3,&m_pAttrItem);
-		m_pAttrItem->get_nodeTypedValue(&variantValue);   
+		m_pElement = m_pNode;
+		if(m_pElement == NULL)
+		{
+			continue;
+		}
+		variantValue = m_pElement->getAttribute("Guid");  
 
 		if(strcmp(pDiskGuid,(char *)(_bstr_t)variantValue) == 0)
 		{
 			m_pNodeSub = m_pDoc->createNode((_variant_t)(long)MSXML2::NODE_ELEMENT, (_bstr_t)(char*)pSubName, (_bstr_t)(char*)"");
 			m_pNode->appendChild(m_pNodeSub);
 
-			return EXIT_SUCCESS;;
+			variantValue.Clear();
+			return EXIT_SUCCESS;
 		}
 	}
 
+	variantValue.Clear();
 	return EXIT_FAILURE;
 }
 
@@ -125,6 +148,25 @@ DWORD COSNxml::LoadFile(wchar_t *pXML)
 		return EXIT_FAILURE;
 
 	m_pDoc->loadXML(pXML);
+	return EXIT_SUCCESS;
+}
+
+DWORD COSNxml::GetXMLNodeAttribute(char *pAbsolutePath,char *pAttributeName,char **pOutBuffer)
+{
+
+	m_pElement = m_pNode->selectSingleNode((_bstr_t)(char*)pAbsolutePath);
+	if(m_pElement == NULL)
+	{
+		return EXIT_FAILURE;
+	}
+
+	_variant_t varId;  
+    varId = m_pElement->getAttribute(pAttributeName);
+	DWORD buffersize = strlen((_bstr_t)varId.bstrVal);
+	*pOutBuffer = new char[buffersize+1];
+	strcpy_s(*pOutBuffer,buffersize+1,(_bstr_t)varId.bstrVal);
+	varId.Clear(); 
+
 	return EXIT_SUCCESS;
 }
 

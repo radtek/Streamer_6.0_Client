@@ -54,17 +54,17 @@ public:
 	char			g_ExeFilePath[MAX_PATH];
 
 
-	HANDLE          m_HBSendNotificationThreadHandle;
-	HANDLE          m_HBDssSendNotificationEventHandle;
-	HANDLE			m_HBVssSendNotificationEventHandle;
+	HANDLE          m_HCSendNotificationThreadHandle;
+	HANDLE          m_HCDssSendNotificationEventHandle;
+	HANDLE			m_HCVssSendNotificationEventHandle;
 
-	HANDLE			m_HBRescanDiskEventHandle;
-	HANDLE			m_HBRescanDiskThreadHandle;
-	BOOL            m_HBRescanDiskThreadRunFlag;
+	HANDLE			m_HCRescanDiskEventHandle;
+	HANDLE			m_HCRescanDiskThreadHandle;
+	BOOL            m_HCRescanDiskThreadRunFlag;
 
 	BOOL            m_CreateRescanEventToHostmirror;
 
-	BOOL            m_HBThreadRunFlag;
+	BOOL            m_HCThreadRunFlag;
 	BOOL            m_PassEventToDss;
 	BOOL			    m_PassEventToVss;
 

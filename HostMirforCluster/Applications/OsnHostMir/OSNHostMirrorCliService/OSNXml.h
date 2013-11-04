@@ -47,8 +47,9 @@ public:
 public:
 	DWORD CreateXMLFile(char *pRootName);
 
-	DWORD GetXMLText(WCHAR *Msg);
+	DWORD GetXMLText(char *Msg);
 	DWORD GetXMLNodeText(char *pRootName,char *pNodeName,char *pOutBuffer);
+	DWORD GetXMLNodeAttribute(char *pAbsolutePath,char *pAttributeName,char **pOutBuffer);
 
 	DWORD UnicodeToUTF_8(wchar_t *pUnicode ,char *pUtf8);
 	DWORD UTF_8ToUnicode(char *pUtf8 ,wchar_t *pUnicode);
@@ -57,8 +58,9 @@ public:
 	DWORD SaveFile(char *pNodeName);
 
 	DWORD AddXMLAttribute(char *pNodeName,char *pAttributeName,char *pAttributeValue);
-	DWORD AddXMLDisElement(char *pFatName,char *pSubName);
+	DWORD AddXMLElement(char *pFatName,char *pSubName);
 	DWORD AddXMLVolElement(char *pFatName,char *pSubName,char *pDiskGuid);
+	DWORD AddXMLChannelElement(char *pFatName,char *pSubName);
 	DWORD AddXMLElement(char *pNodeName);
 
     MSXML2::IXMLDOMDocumentPtr                  m_pDoc ;                         // xml文档
@@ -69,7 +71,7 @@ public:
     MSXML2::IXMLDOMAttributePtr                 m_pAttrNode;                     // 属性
 	MSXML2::IXMLDOMNodeListPtr                  m_pNodeList;                   //节点链表
 	MSXML2::IXMLDOMNamedNodeMapPtr              m_pAttrMap;  
-    MSXML2::IXMLDOMNodePtr                      m_pAttrItem;  
+    MSXML2::IXMLDOMNodePtr                      m_pAttrItem; 
 };
 
 #endif

@@ -29,7 +29,7 @@ extern	COSNService			*pOSNService;
 COSNRpcSocket::COSNRpcSocket()
 {
 	m_socket	= INVALID_SOCKET;
-	m_unPort	= OSNRPC_HBSOCKET_SERVICE_PORT;
+	m_unPort	= OSNRPC_HCSOCKET_SERVICE_PORT;
 	m_nError	= 0;
 	m_startSocketEventHandle =NULL;
 	m_startSocketSuccess = false;
@@ -126,7 +126,7 @@ DWORD WINAPI COSNRpcSocket::OSNRpcStartSocketThread(void *pData)
 			*/
 	}
      
-	listen(pOSNRpcServer->m_socket,HBMAXIMUM_SOCKET_LISTENING);
+	listen(pOSNRpcServer->m_socket,HCMAXIMUM_SOCKET_LISTENING);
 	pOSNService->DecrementThreadCount();
 	pOSNService->LogMessage("INFO: OSN HostMirrorClient socket start thread stopped.");
 	return 0;

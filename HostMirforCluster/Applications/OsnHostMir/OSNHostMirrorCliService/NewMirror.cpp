@@ -10,16 +10,16 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 		IWbemLocator           *m_pLoc = NULL;
 		IEnumWbemClassObject   *pEnumerator = NULL;
 
-		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
+		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;
 		}
 
 		HRESULT hres;
-		wchar_t  pWQL[32];
+		wchar_t  pWQL[128];
 		swprintf_s(pWQL,_countof(pWQL),L"Associators   of   {win32_LogicalDisk='%s'}   where   resultClass   =   Win32_DiskPartition",label->c_str());
 
 		hres = m_pSvc->ExecQuery(
@@ -32,7 +32,7 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 		if (FAILED(hres))
 		{
 			printf("pSvc->ExecQuery error\n");
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return 3;               // Program has failed.
 		}
 		IWbemClassObject *pclsObj;
@@ -57,14 +57,18 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 			}
 
 			VARIANT vtProp;
-			pclsObj->Get(L"Bootable", 0, &vtProp, 0, 0);
-			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
-			DWORD dw = _wtoi(VolumeLabel->c_str());
-			delete(VolumeLabel);
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
-			return dw;
+			DWORD dw = 3;
+			if(pclsObj->Get(L"Bootable", 0, &vtProp, 0, 0) == S_OK)
+			{
+				dw = vtProp.boolVal;
+
+				pclsObj->Release();
+				OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+				VariantClear(&vtProp);
+				return dw;
+			}
 		}
-		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return 3;
 	//}
 	//catch(...)
@@ -144,16 +148,14 @@ DWORD CNewMirror::WcharToChar(const wchar_t *pWchar,char *pChar,int Length)
 	return EXIT_SUCCESS;
 }
 
-DWORD CNewMirror::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
+DWORD CNewMirror::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_t *pResName)
 {
 	HRESULT hres;
-	
-	m_pLoc = 0;
 	hres = CoCreateInstance(
 		CLSID_WbemLocator,            
 		0,
 		CLSCTX_INPROC_SERVER,
-		IID_IWbemLocator, (LPVOID *) &m_pLoc);
+		IID_IWbemLocator, (LPVOID *) &(*m_pLoc));
 
 	if (FAILED(hres))
 	{
@@ -163,15 +165,15 @@ DWORD CNewMirror::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 	}
 
 	//使用pLoc连接到” root\cimv2” 并把pSvc的指针也搞定了
-	hres = m_pLoc->ConnectServer(
-		_bstr_t(L"ROOT\\CIMV2"), // WMI namespace
+	hres = (*m_pLoc)->ConnectServer(
+		_bstr_t(pResName), // WMI namespace
 		NULL,                    // User name
 		NULL,                    // User password
 		0,                       // Locale
 		NULL,                    // Security flags                
 		0,                       // Authority      
 		0,                       // Context object
-		&m_pSvc                    // IWbemServices proxy
+		&(*m_pSvc)                    // IWbemServices proxy
 		);                             
 	if (FAILED(hres))
 	{
@@ -183,7 +185,7 @@ DWORD CNewMirror::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 	//已经连接到WMI了
 
 	hres = CoSetProxyBlanket(
-		m_pSvc,                         // the proxy to set
+		(*m_pSvc),                         // the proxy to set
 		RPC_C_AUTHN_WINNT,            // authentication service
 		RPC_C_AUTHZ_NONE,             // authorization service
 		NULL,                         // Server principal name
@@ -205,24 +207,24 @@ DWORD CNewMirror::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc)
 	return EXIT_SUCCESS;
 }
 
-DWORD CNewMirror::OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator)
+DWORD CNewMirror::OSNCloseWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,IEnumWbemClassObject **pEnumerator)
 {
-	if(m_pSvc != NULL)
+	if((*m_pSvc) != NULL)
 	{
-		m_pSvc->Release();
-		m_pSvc = NULL;
+		(*m_pSvc)->Release();
+		(*m_pSvc) = NULL;
 	}
 
-	if(m_pLoc != NULL)
+	if((*m_pLoc) != NULL)
 	{
-		m_pLoc->Release();
-		m_pLoc = NULL;
+		(*m_pLoc)->Release();
+		(*m_pLoc) = NULL;
 	}
 
-	if(pEnumerator != NULL)
+	if((*pEnumerator) != NULL)
 	{
-		pEnumerator->Release();
-		pEnumerator = NULL;
+		(*pEnumerator)->Release();
+		(*pEnumerator) = NULL;
 	}
 	return EXIT_SUCCESS;
 }
@@ -235,17 +237,17 @@ DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 		IWbemLocator          *m_pLoc = NULL;
 		IEnumWbemClassObject* pEnumerator = NULL;
 
-		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
+		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;
 		}
 
 		HRESULT hres;
-		wchar_t  pWQL[32];
-		swprintf_s(pWQL,_countof(pWQL),L"Select * from Win32_DiskDrive where Index=%s",index);
+		wchar_t  pWQL[128];
+		swprintf_s(pWQL,_countof(pWQL),L"Select * from Win32_DiskDrive where Index=%d",index);
 
 		hres = m_pSvc->ExecQuery(
 			bstr_t("WQL"),
@@ -257,7 +259,7 @@ DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 		if (FAILED(hres))
 		{
 			printf("pSvc->ExecQuery error\n");
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;               // Program has failed.
 		}
 		IWbemClassObject *pclsObj;
@@ -273,23 +275,28 @@ DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 			}
 
 			VARIANT vtProp;
-			pclsObj->Get(L"PNPDeviceID", 0, &vtProp, 0, 0);
-			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
-
-			if(VolumeLabel->compare(L"EIM") == 0)
+			if(S_OK == pclsObj->Get(L"PNPDeviceID", 0, &vtProp, 0, 0))
 			{
-				delete(VolumeLabel);
-				OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
-				return 1;
-			}
-			else
-			{
-				delete(VolumeLabel);
-				OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
-				return 2;
+				wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
+				
+				VariantClear(&vtProp);
+				if(wcsstr(VolumeLabel->c_str(),L"EIM"))
+				{
+					delete(VolumeLabel);
+					pclsObj->Release();
+					OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+					return 1;
+				}
+				else
+				{
+					delete(VolumeLabel);
+					pclsObj->Release();
+					OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+					return 2;
+				}
 			}
 		}
-		OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return -1;
 	/*}
 	catch(...)
@@ -342,16 +349,16 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 		IWbemLocator  *m_pLoc = NULL;
 		IEnumWbemClassObject* pEnumerator = NULL;
 
-		DWORD dw = OSNInitWMI(m_pSvc,m_pLoc);
+		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
 			printf("Init WMI error!\n");
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;
 		}
 
 		HRESULT hres;
-		wchar_t  pWQL[32];
+		wchar_t  pWQL[128];
 		swprintf_s(pWQL,_countof(pWQL),L"Associators of {win32_LogicalDisk='%s'} where resultClass = Win32_DiskPartition",LabelName->c_str());
 
 		hres = m_pSvc->ExecQuery(
@@ -363,7 +370,7 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 			);
 		if (FAILED(hres))
 		{
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			printf("pSvc->ExecQuery error\n");
 			return -1;               // Program has failed.
 		}
@@ -380,13 +387,15 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 			}
 
 			VARIANT vtProp;
-			pclsObj->Get(L"DiskIndex", 0, &vtProp, 0, 0);
-			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.           
-			int Index2 = _wtoi(VolumeLabel->c_str());
-			delete(VolumeLabel);
+			if(S_OK == pclsObj->Get(L"DiskIndex", 0, &vtProp, 0, 0))
+			{
+				int Index2 = vtProp.lVal;
 
-			OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
-			return CheckDiskIsEIMDisk(Index2); 
+				VariantClear(&vtProp);
+				pclsObj->Release();
+				OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+				return CheckDiskIsEIMDisk(Index2); 
+			}
 		}
 	/*}
 	catch(...)
@@ -394,7 +403,7 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 		MessageBox::Show("获取卷的提供商信息失败，请稍后重试");
 
 	}*/
-	OSNCloseWMI(m_pSvc,m_pLoc,pEnumerator);
+	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 	return -1;
 }
 void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)

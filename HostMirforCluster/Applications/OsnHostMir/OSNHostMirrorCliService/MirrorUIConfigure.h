@@ -4,6 +4,13 @@
 #include <string>
 using namespace std;
 
+enum RegKey
+{
+	BoolKey,
+	StringKey,
+	DwordKey,
+};
+
 enum DeviceRole
 {
 	Free,
@@ -100,6 +107,7 @@ public:
 
 	wstring           m_Protected;    //磁盘是否已被保护
 	unsigned __int64  m_DiskSize ;     //磁盘容量大小（MB）  
+	unsigned __int64  m_UsedSpace;
 	unsigned int      m_DiskIndex;     //磁盘索引
     wstring           *m_Guid;         //磁盘的GUID
     wstring           *m_DiskOEM;      //磁盘厂商
@@ -108,7 +116,7 @@ public:
 	DiskState         m_DiskState;     //磁盘状态
     
 public:
-	CDiskInfo (DeviceRole role,unsigned __int64 Size,unsigned int Index,
+	CDiskInfo (DeviceRole role,unsigned __int64 Size,unsigned __int64 UsedSize,unsigned int Index,
 		wstring *guid,wstring *DiskOEM,DiskFormat format,DiskStyle style,DiskState state)
 	{
 		if(role == Free)
@@ -118,6 +126,7 @@ public:
 
 		m_Role      = role;
 		m_DiskSize  = Size;
+		m_UsedSpace = UsedSize;
 		m_DiskIndex = Index;
 		m_Guid      = guid;
 		m_DiskOEM   = DiskOEM;
@@ -149,7 +158,7 @@ public:
 
 	      
 public: 
-	CVolumeInfo(DeviceRole role,unsigned __int64 Size,unsigned __int64 FreeSize,
+	CVolumeInfo(DeviceRole role,unsigned __int64 Size,unsigned __int64 UsedSize,
 		wstring *guid,wstring *VolumeLable,wstring *diskguid,FileSys filesys,VolumeState state)
 	{
 		if(role == Free)
@@ -159,7 +168,7 @@ public:
 
 		m_Role          = role;
 		m_VolumeSize    = Size ;
-		m_UsedSpace     = Size - FreeSize;
+		m_UsedSpace     = UsedSize;
 		m_GUID          = guid;
 		m_VolumeLable   = VolumeLable;
 		m_DiskGUID      = diskguid;

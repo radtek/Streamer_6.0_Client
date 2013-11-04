@@ -197,7 +197,7 @@ typedef struct _SendCfgFile_Message_Header
 //define constants
 #define OSNRPC_SOCKET_CLIENT_PORT	59185		//default OSN RPC Client port
 #define	OSNRPC_SOCKET_SERVICE_PORT	59186		//Default OSN Rpc service port
-#define OSNRPC_HBSOCKET_CLIENT_PORT	49185		//default OSN RPC Client port
+//#define OSNRPC_HBSOCKET_CLIENT_PORT	49185		//default OSN RPC Client port
 #define	OSNRPC_HBSOCKET_SERVICE_PORT	49186		//Default OSN Rpc service port
 
 #define	OSNRPC_MAX_MSG_LEN			1024*512			//Maximum message length sent by OSN Rpc service 

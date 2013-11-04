@@ -2,7 +2,7 @@
 
 #ifndef _OSNRPCSERVER_H_
 #define _OSNRPCSERVER_H_
-# include "Configure.h"
+#include "Configure.h"
 
 class COSNRpcServer : public COSNRpcSocket 
 {

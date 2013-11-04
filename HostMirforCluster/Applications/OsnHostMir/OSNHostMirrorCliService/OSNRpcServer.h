@@ -41,15 +41,18 @@ public:
 
 	//stream
 	bool OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader);
-	DWORD OSNRpcGetBasicInfo(char *pHostname,char *pIpAddress,char *SysVersion);
+	DWORD OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,char *SysVersion);
 	DWORD OSNRpcGetSysVersion(char *pSysVersion);
 	DWORD OSNRpcGetServiceInfo(DWORD pXML);
 	DWORD OSNRpcSetMirror(DWORD pXML);
 	DWORD OSNRpcRemoveMirror(DWORD pXML);
 	DWORD OSNRpcInitMirror(DWORD pXML);
 	DWORD OSNRpcGetInitMirrorRate(DWORD pXML);
+	DWORD OSNRpcGetiSCSIChannel(DWORD pXML);
 	DWORD OSNRpcSetServiceInfo();
 	DWORD OSNRpcGetClientInfo();
+
+	char * OSNRpcGetIPsInfo();
 
 private:
 
@@ -65,11 +68,6 @@ private:
 
 	//stream
 	COsnMirrorCopyXML *m_pCopyXML;
-
-public:
-
-	char m_ServerIP[20];
-	bool m_IsProtected;
 };
 
 

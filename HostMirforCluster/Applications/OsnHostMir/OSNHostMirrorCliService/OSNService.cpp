@@ -83,9 +83,9 @@ COSNService::COSNService()
 	m_PassEventToVss	= false;
 
 	m_pRemoteServer= NULL;
-	m_HBSendNotificationThreadHandle=NULL;
-	m_HBDssSendNotificationEventHandle=NULL;
-	m_HBVssSendNotificationEventHandle=NULL;
+	m_HCSendNotificationThreadHandle=NULL;
+	m_HCDssSendNotificationEventHandle=NULL;
+	m_HCVssSendNotificationEventHandle=NULL;
 
     m_CreateRescanEventToHostmirror = false;
 	
@@ -389,7 +389,7 @@ BOOL COSNService::Initialize()
 {
     SetStatus(SERVICE_START_PENDING);
     
-	stopServiceEventHandle = ::CreateEvent(NULL,FALSE,FALSE,"StopHeatBeatServiceEvent");
+	stopServiceEventHandle = ::CreateEvent(NULL,FALSE,FALSE,"StopHostmirrorClientServiceEvent");
  
 	// Perform the actual initialization
     BOOL bResult = OnInit(); 
@@ -653,8 +653,8 @@ void COSNService::OnStop()
 
 	::SetEvent(stopServiceEventHandle);
 
-	CloseHandle(m_HBRescanDiskEventHandle);
-	CloseHandle(m_HBRescanDiskThreadHandle);
+	CloseHandle(m_HCRescanDiskEventHandle);
+	CloseHandle(m_HCRescanDiskThreadHandle);
 }
 
 void COSNService::OnInterrogate()
@@ -822,23 +822,24 @@ DWORD WINAPI COSNService:: OSNHBSendNotificationThread(void *pData)
 		}
 
 		DWORD dwWaitResult=0;
-		pOSNService->m_HBThreadRunFlag=true;
+		pOSNService->m_HCThreadRunFlag=true;
 		pOSNService->IncrementThreadCount();
 
-		while (pOSNService->m_HBThreadRunFlag)
+		while (pOSNService->m_HCThreadRunFlag)
 		{
-			pOSNService->HandleDssNotification();
-			pOSNService->HandleVssNotification();
+			Sleep(5000);
+			//pOSNService->HandleDssNotification();
+			//pOSNService->HandleVssNotification();
 
-			// send to remote server
-			pOSNService->SendNotificationToRemoteServer();
+			//// send to remote server
+			//pOSNService->SendNotificationToRemoteServer();
 		}
 
 		pOSNService->DecrementThreadCount();
 
 		
-		CloseHandle(pOSNService->m_HBSendNotificationThreadHandle);
-		pOSNService->m_HBSendNotificationThreadHandle=INVALID_HANDLE_VALUE;
+		CloseHandle(pOSNService->m_HCSendNotificationThreadHandle);
+		pOSNService->m_HCSendNotificationThreadHandle=INVALID_HANDLE_VALUE;
 
 		pOSNService->LogMessage("INFO: HeartBeat Server thread stopped");
 		return 0;			//thread function return
@@ -849,13 +850,13 @@ DWORD WINAPI COSNService:: OSNHBSendNotificationThread(void *pData)
 DWORD COSNService::CreateHBSendNotificationThread()
 {
 	DWORD ThreadID;
-	this->m_HBSendNotificationThreadHandle=CreateThread(NULL,
+	this->m_HCSendNotificationThreadHandle=CreateThread(NULL,
 														0,
 														OSNHBSendNotificationThread,
 														(void *)this,
 														0,
 														&ThreadID);
-	if(this->m_HBSendNotificationThreadHandle == INVALID_HANDLE_VALUE)
+	if(this->m_HCSendNotificationThreadHandle == INVALID_HANDLE_VALUE)
 	{
 		return GetLastError();
 	}
@@ -866,13 +867,13 @@ DWORD COSNService::CreateHBSendNotificationThread()
 DWORD COSNService::CreateHBRescanDiskThread()
 {
 	DWORD ThreadID;
-	this->m_HBRescanDiskThreadHandle = CreateThread(NULL,
+	this->m_HCRescanDiskThreadHandle = CreateThread(NULL,
 													0,
 													OSNHBRescanDiskThread,
 													(void *)this,
 													0,
 													&ThreadID);
-	if(this->m_HBRescanDiskThreadHandle == INVALID_HANDLE_VALUE)
+	if(this->m_HCRescanDiskThreadHandle == INVALID_HANDLE_VALUE)
 	{
 		return GetLastError();
 	}
@@ -882,19 +883,19 @@ DWORD COSNService::CreateHBRescanDiskThread()
 
 void COSNService::StopHBRescanDiskThread()
 {
-	  m_HBRescanDiskThreadRunFlag=false;
+	  m_HCRescanDiskThreadRunFlag=false;
 
-	 if(m_HBRescanDiskEventHandle)
+	 if(m_HCRescanDiskEventHandle)
 	 {
-		::SetEvent(m_HBRescanDiskEventHandle);
+		::SetEvent(m_HCRescanDiskEventHandle);
 	 }
 
      // stop the thread
 	  DWORD ExitCode =0;
-	  if(m_HBRescanDiskThreadHandle!=INVALID_HANDLE_VALUE)
+	  if(m_HCRescanDiskThreadHandle!=INVALID_HANDLE_VALUE)
 	  {
-			GetExitCodeThread(m_HBRescanDiskThreadHandle,&ExitCode);
-			TerminateThread(m_HBRescanDiskThreadHandle,ExitCode);
+			GetExitCodeThread(m_HCRescanDiskThreadHandle,&ExitCode);
+			TerminateThread(m_HCRescanDiskThreadHandle,ExitCode);
 	  }
 }
 
@@ -907,43 +908,43 @@ DWORD  WINAPI COSNService::OSNHBRescanDiskThread(void *pData)
 		}
 
 		DWORD dwWaitResult=0;
-		pOSNService->m_HBRescanDiskThreadRunFlag =true;
+		pOSNService->m_HCRescanDiskThreadRunFlag =true;
 		
 
-		while (pOSNService->m_HBRescanDiskThreadRunFlag)
+		while (pOSNService->m_HCRescanDiskThreadRunFlag)
 		{
-		
-			if(!pOSNService->m_HBRescanDiskEventHandle)
-			{
-				Sleep(5000);
-				continue;
-			}
+			Sleep(5000);
+			//if(!pOSNService->m_HCRescanDiskEventHandle)
+			//{
+			//	Sleep(5000);
+			//	continue;
+			//}
 
-			dwWaitResult = ::WaitForSingleObject(pOSNService->m_HBRescanDiskEventHandle, 300000);	//every  5 mins
+			//dwWaitResult = ::WaitForSingleObject(pOSNService->m_HCRescanDiskEventHandle, 300000);	//every  5 mins
 
-			switch (dwWaitResult)
-			{
-				case WAIT_TIMEOUT:
-					{
-						break;
-					}
+			//switch (dwWaitResult)
+			//{
+			//	case WAIT_TIMEOUT:
+			//		{
+			//			break;
+			//		}
 
-				case WAIT_OBJECT_0:
-					{
-						pOSNService->OSNRescanDisk();
-						
-						break;
-					}
-			
-				case WAIT_ABANDONED:
-				default:
-					
-					;
-			}
+			//	case WAIT_OBJECT_0:
+			//		{
+			//			pOSNService->OSNRescanDisk();
+			//			
+			//			break;
+			//		}
+			//
+			//	case WAIT_ABANDONED:
+			//	default:
+			//		
+			//		;
+			//}
 		}
 
-		CloseHandle(pOSNService->m_HBRescanDiskThreadHandle);
-		pOSNService->m_HBRescanDiskThreadHandle=INVALID_HANDLE_VALUE;
+		CloseHandle(pOSNService->m_HCRescanDiskThreadHandle);
+		pOSNService->m_HCRescanDiskThreadHandle=INVALID_HANDLE_VALUE;
 		
 		pOSNService->LogMessage("INFO:HeartBeat Rescan thread stopped");
 		return 0;			//thr
@@ -952,20 +953,20 @@ DWORD  WINAPI COSNService::OSNHBRescanDiskThread(void *pData)
 
 void COSNService::StopHBSendNotificationThread()
 {
-	m_HBThreadRunFlag=false;
+	m_HCThreadRunFlag=false;
 
-	if(m_HBDssSendNotificationEventHandle)
+	if(m_HCDssSendNotificationEventHandle)
 	{
-		::SetEvent(m_HBDssSendNotificationEventHandle);
+		::SetEvent(m_HCDssSendNotificationEventHandle);
 	}
 	Sleep(200);
 
 	  // stop the thread
 	  DWORD ExitCode =0;
-	  if(m_HBSendNotificationThreadHandle!=INVALID_HANDLE_VALUE)
+	  if(m_HCSendNotificationThreadHandle!=INVALID_HANDLE_VALUE)
 	  {
-			GetExitCodeThread(m_HBSendNotificationThreadHandle,&ExitCode);
-			TerminateThread(m_HBSendNotificationThreadHandle,ExitCode);
+			GetExitCodeThread(m_HCSendNotificationThreadHandle,&ExitCode);
+			TerminateThread(m_HCSendNotificationThreadHandle,ExitCode);
 	  }
 
 	FreeAllocatedMemory();	
@@ -1012,7 +1013,7 @@ DWORD	COSNService::	SendSocketCommand(char *pBuffer,
 													 ULONG ipAddress)
 	{
 		
-		if(bufferSize>OSNRPC_HBMAX_MSG_LEN-OSNRPC_HBMSGHEAD_LEN)
+		if(bufferSize>OSNRPC_HCMAX_MSG_LEN-OSNRPC_HCMSGHEAD_LEN)
 		{
 			LogMessage("ERROR: Message to be send exceed the total socket buffer.\n");
 			return -1;
@@ -1027,32 +1028,30 @@ DWORD	COSNService::	SendSocketCommand(char *pBuffer,
 			return WSAGetLastError();
 		}
 		
-	   char msg[OSNRPC_HBMAX_MSG_LEN];
+	   char msg[OSNRPC_HCMAX_MSG_LEN];
 	   memset(msg,0,sizeof(msg));
 
-	   HB_MESSAGE_HEADER	messageHeader;
-       memset(&messageHeader,0,sizeof(HB_MESSAGE_HEADER));
+	   HC_MESSAGE_HEADER	messageHeader;
+       memset(&messageHeader,0,sizeof(HC_MESSAGE_HEADER));
 
 
-       memcpy(&msg[OSNRPC_HBMSGHEAD_LEN],pBuffer,bufferSize);
-	   msg[OSNRPC_HBMSGHEAD_LEN+bufferSize]='\0';
+       memcpy(&msg[OSNRPC_HCMSGHEAD_LEN],pBuffer,bufferSize);
+	   msg[OSNRPC_HCMSGHEAD_LEN+bufferSize]='\0';
 
-	   messageHeader.command = command;
-	   //memcpy(messageHeader.initiatorWWN,	&m_HostWWN, sizeof(WWN));
-	   //messageHeader.initiatorWWN[sizeof(WWN)] = '\0';
+	   /*messageHeader.command = command;
 	   memcpy(messageHeader.initiatorName,	m_Hostname, m_HostnameLength);
 	   messageHeader.initiatorName[m_HostnameLength] = '\0';
 	   messageHeader.paraNum=1;
 	   messageHeader.retStatus=CMD_STATUS_INIT;
 	   messageHeader.flags	  = OSNRPC_HBCMD_ASK;
-	   messageHeader.dataLength =bufferSize;
+	   messageHeader.dataLength =bufferSize;*/
 
 	   // set the massage header
-	   memcpy(msg,&messageHeader,sizeof(HB_MESSAGE_HEADER));
+	   memcpy(msg,&messageHeader,sizeof(HC_MESSAGE_HEADER));
 
 	   SOCKADDR_IN targetSocket;
 	   targetSocket.sin_family=AF_INET;
-	   targetSocket.sin_port=htons(OSNRPC_HBSOCKET_SERVICE_PORT);
+	   targetSocket.sin_port=htons(OSNRPC_HCSOCKET_SERVICE_PORT);
 
 	   in_addr	addr;
 	   addr.S_un.S_addr = ipAddress;
@@ -1066,7 +1065,7 @@ DWORD	COSNService::	SendSocketCommand(char *pBuffer,
 
 		if(!m_OSNRpcServer.OSNRpcSendMsg(targetSocket, 
 										msg, 
-										sizeof(HB_MESSAGE_HEADER) + messageHeader.dataLength,
+										sizeof(HC_MESSAGE_HEADER) + messageHeader.dataLength,
 										ConnectSocket))
 		{
 			LogMessage("ERROR:Failed to send message",WSAGetLastError());
@@ -1088,7 +1087,7 @@ DWORD	COSNService::	SendSocketCommand(char *pBuffer,
 			return 1;
 		}
 
-		DWORD m_nError=recv(ConnectSocket,msg,OSNRPC_HBMAX_MSG_LEN,0);
+		DWORD m_nError=recv(ConnectSocket,msg,OSNRPC_HCMAX_MSG_LEN,0);
 		if (m_nError == SOCKET_ERROR)					
 		{
 			shutdown(ConnectSocket,SD_BOTH);
@@ -1097,13 +1096,13 @@ DWORD	COSNService::	SendSocketCommand(char *pBuffer,
 			return WSAGetLastError();
 		}
           
-		memcpy(&messageHeader,msg,OSNRPC_HBMSGHEAD_LEN);
-		memcpy(pBuffer,&msg[OSNRPC_HBMSGHEAD_LEN],bufferSize);
+		memcpy(&messageHeader,msg,OSNRPC_HCMSGHEAD_LEN);
+		memcpy(pBuffer,&msg[OSNRPC_HCMSGHEAD_LEN],bufferSize);
 
-		if(messageHeader.retStatus!=CMD_HBSTATUS_SUCCESS)
+		/*if(messageHeader.retStatus!=CMD_HBSTATUS_SUCCESS)
 		{
 			return 1;
-		}
+		}*/
 
 		shutdown(ConnectSocket,SD_BOTH);
 		closesocket(ConnectSocket);
@@ -1239,14 +1238,14 @@ void   COSNService::PassEventHandleToDriver()//在驱动创建时间，获取事件handle
 		if(!ErrorCode)
 		{
 			LogMessage("INFO:Create Dss Notification Event successfully");
-			m_HBDssSendNotificationEventHandle=::OpenEvent(SYNCHRONIZE,	FALSE,"OSNDSSHBNotificationEvent");
+			m_HCDssSendNotificationEventHandle=::OpenEvent(SYNCHRONIZE,	FALSE,"OSNDSSHBNotificationEvent");
 			//m_HBDssSendNotificationEventHandle=::OpenEvent(SYNCHRONIZE,FALSE,"OSNDSSHBNotificationEvent");
-			if(m_HBDssSendNotificationEventHandle)
+			if(m_HCDssSendNotificationEventHandle)
 			{
 			   m_PassEventToDss=true;
 			   QueryMirrorNotificationInfo();
 			   char name[128];
-			   sprintf(name,"INFO:Open dss event handle ,handle=%x",m_HBDssSendNotificationEventHandle);
+			   sprintf(name,"INFO:Open dss event handle ,handle=%x",m_HCDssSendNotificationEventHandle);
 			   LogMessage(name);
 
 			}
@@ -1267,13 +1266,13 @@ void   COSNService::PassEventHandleToDriver()//在驱动创建时间，获取事件handle
 		if(!ErrorCode)
 		{
 			LogMessage("INFO:Create Vss Event successfully");
-			m_HBVssSendNotificationEventHandle=::OpenEvent(SYNCHRONIZE,FALSE,"OSNVSSHBNotificationEvent");
-			if(m_HBVssSendNotificationEventHandle)
+			m_HCVssSendNotificationEventHandle=::OpenEvent(SYNCHRONIZE,FALSE,"OSNVSSHBNotificationEvent");
+			if(m_HCVssSendNotificationEventHandle)
 			{
 			   m_PassEventToVss=true;
 			   QueryMirrorNotificationInfo(false);
 			   char name[128];
-			   sprintf(name,"INFO:Open vss event handle ,handle=%x",m_HBVssSendNotificationEventHandle);
+			   sprintf(name,"INFO:Open vss event handle ,handle=%x",m_HCVssSendNotificationEventHandle);
 			   LogMessage(name);
 
 			}
@@ -1295,12 +1294,12 @@ void   COSNService::PassEventHandleToDriver()//在驱动创建时间，获取事件handle
 		if(!ErrorCode&&!VssErrorCode)
 		{
 			LogMessage("INFO:Create Rescan and open Event successfully");
-			m_HBRescanDiskEventHandle=::OpenEvent(SYNCHRONIZE,FALSE,"OSNHBRescanEvent");
-			if(m_HBRescanDiskEventHandle)
+			m_HCRescanDiskEventHandle=::OpenEvent(SYNCHRONIZE,FALSE,"OSNHBRescanEvent");
+			if(m_HCRescanDiskEventHandle)
 			{
 			   m_CreateRescanEventToHostmirror=true;
 			   char name[128];
-			   sprintf(name,"INFO:Open rescan event handle ,handle=%x",m_HBRescanDiskEventHandle);
+			   sprintf(name,"INFO:Open rescan event handle ,handle=%x",m_HCRescanDiskEventHandle);
 			   LogMessage(name);
 
 			}
@@ -1330,13 +1329,13 @@ void COSNService::FreeAllocatedMemory()
 
 void COSNService::HandleDssNotification()
 {
-	if(!pOSNService->m_HBDssSendNotificationEventHandle)
+	if(!pOSNService->m_HCDssSendNotificationEventHandle)
 	{
 		Sleep(5000);
 		return;
 	}
 
-	DWORD dwWaitResult = ::WaitForSingleObject(pOSNService->m_HBDssSendNotificationEventHandle, 
+	DWORD dwWaitResult = ::WaitForSingleObject(pOSNService->m_HCDssSendNotificationEventHandle, 
 														   3000);	//every  3 sec
 	
 	switch (dwWaitResult)
@@ -1350,7 +1349,7 @@ void COSNService::HandleDssNotification()
 
 		case WAIT_OBJECT_0:
 			{
-				if(pOSNService->m_HBThreadRunFlag)
+				if(pOSNService->m_HCThreadRunFlag)
 				{
 					pOSNService->QueryMirrorNotificationInfo();
 				}
@@ -1365,13 +1364,13 @@ void COSNService::HandleDssNotification()
 
 void COSNService::HandleVssNotification()
 {
-	if(!pOSNService->m_HBVssSendNotificationEventHandle)
+	if(!pOSNService->m_HCVssSendNotificationEventHandle)
 	{
 		Sleep(5000);
 		return;
 	}
 
-	DWORD	dwWaitResult = ::WaitForSingleObject(pOSNService->m_HBVssSendNotificationEventHandle, 
+	DWORD	dwWaitResult = ::WaitForSingleObject(pOSNService->m_HCVssSendNotificationEventHandle, 
 														   3000);	//every  3 sec
 
 	switch (dwWaitResult)
@@ -1385,7 +1384,7 @@ void COSNService::HandleVssNotification()
 
 		case WAIT_OBJECT_0:
 			{
-				if(pOSNService->m_HBThreadRunFlag)
+				if(pOSNService->m_HCThreadRunFlag)
 				{
 					pOSNService->QueryMirrorNotificationInfo(false);
 				}
@@ -1401,17 +1400,17 @@ void COSNService::HandleVssNotification()
 
 void COSNService::GetClusterServerInfo()
 {
-	CRegKey HBServiceKey;
+	CRegKey HCServiceKey;
 	ULONGLONG  IPAddress=0;
 	char   ServerName[128];
 	ULONG Size =sizeof(ServerName);
 	memset(ServerName,0,sizeof(ServerName));
 	
-	if(HBServiceKey.Open(HKEY_LOCAL_MACHINE,
+	if(HCServiceKey.Open(HKEY_LOCAL_MACHINE,
 		"SYSTEM\\CurrentControlSet\\Services\\OSNCliService\\Parameters")==ERROR_SUCCESS)
 	{
 		// query cluster server name
-		if(HBServiceKey.QueryStringValue("PartnerName",ServerName,&Size)==ERROR_SUCCESS)
+		if(HCServiceKey.QueryStringValue("PartnerName",ServerName,&Size)==ERROR_SUCCESS)
 		{
 			if(!m_pRemoteServer)
 			{
@@ -1423,28 +1422,28 @@ void COSNService::GetClusterServerInfo()
 
 		if(!m_pRemoteServer)
 		{
-			HBServiceKey.Close();
+			HCServiceKey.Close();
 			return;
 		}
 
 		// query ip address
-		if(HBServiceKey.QueryQWORDValue("PriIPAddress",IPAddress)== ERROR_SUCCESS)
+		if(HCServiceKey.QueryQWORDValue("PriIPAddress",IPAddress)== ERROR_SUCCESS)
 		{
 			m_pRemoteServer->SetIPAddress(0,IPAddress);
 		}
 
-		if(HBServiceKey.QueryQWORDValue("SecIPAddress",IPAddress)== ERROR_SUCCESS)
+		if(HCServiceKey.QueryQWORDValue("SecIPAddress",IPAddress)== ERROR_SUCCESS)
 		{
 			m_pRemoteServer->SetIPAddress(1,IPAddress);
 		}
 
-		HBServiceKey.Close();
+		HCServiceKey.Close();
 	}
-	else if(HBServiceKey.Create(HKEY_LOCAL_MACHINE,
+	else if(HCServiceKey.Create(HKEY_LOCAL_MACHINE,
 		"SYSTEM\\CurrentControlSet\\Services\\OSNCliService\\Parameters")==ERROR_SUCCESS)
 	{
 		// query cluster server name
-		if(HBServiceKey.QueryStringValue("PartnerName",ServerName,&Size)==ERROR_SUCCESS)
+		if(HCServiceKey.QueryStringValue("PartnerName",ServerName,&Size)==ERROR_SUCCESS)
 		{
 			if(!m_pRemoteServer)
 			{
@@ -1454,22 +1453,22 @@ void COSNService::GetClusterServerInfo()
 
 		if(!m_pRemoteServer)
 		{
-			HBServiceKey.Close();
+			HCServiceKey.Close();
 			return;
 		}
 
 		// query ip address
-		if(HBServiceKey.QueryQWORDValue("PriIPAddress",IPAddress)== ERROR_SUCCESS)
+		if(HCServiceKey.QueryQWORDValue("PriIPAddress",IPAddress)== ERROR_SUCCESS)
 		{
 			m_pRemoteServer->SetIPAddress(0,IPAddress);
 		}
 
-		if(HBServiceKey.QueryQWORDValue("SecIPAddress",IPAddress)== ERROR_SUCCESS)
+		if(HCServiceKey.QueryQWORDValue("SecIPAddress",IPAddress)== ERROR_SUCCESS)
 		{
 			m_pRemoteServer->SetIPAddress(1,IPAddress);
 		}
 
-		HBServiceKey.Close();
+		HCServiceKey.Close();
 	}
 }
 void COSNService::OSNRescanDisk()

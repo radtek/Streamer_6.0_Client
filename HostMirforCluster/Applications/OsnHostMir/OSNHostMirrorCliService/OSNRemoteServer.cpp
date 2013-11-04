@@ -281,7 +281,7 @@ DWORD CRemoteServer::_SendNotificationToRemoteServer(ULONG IPAddress,ULONG Numbe
 
 	DWORD Send=pOSNService->SendSocketCommand(pBuffer,
 		BufferSize,
-		OSNRPC_CMD_NOTIFICATION_SET,
+		0x0001,//OSNRPC_CMD_NOTIFICATION_SET,
 		IPAddress);
 
 	if(Send!=0)

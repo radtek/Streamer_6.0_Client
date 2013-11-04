@@ -72,16 +72,14 @@ public:
 
 };
 
-#define HBMAXIMUM_SOCKET_LISTENING       128
-#define OSNRPC_HBSOCKET_CLIENT_PORT	    49185		//default OSN RPC Client port
-#define	OSNRPC_HBSOCKET_SERVICE_PORT	9998		//Default OSN Rpc service port
+#define HCMAXIMUM_SOCKET_LISTENING       128
+#define OSNRPC_HCSOCKET_CLIENT_PORT	    9997		//default OSN RPC Client port
+#define	OSNRPC_HCSOCKET_SERVICE_PORT	9998		//Default OSN Rpc service port
 
-#define	OSNRPC_HCMAX_MSG_LEN			1024*512			//Maximum message length sent by OSN Rpc service 
-#define	OSNRPC_HBMAX_MSG_LEN			1024*512
-#define OSNRPC_HBMAX_MSG				2			//Maximum outstanding messages sent by the client
+#define	OSNRPC_HCMAX_MSG_LEN			1024*512			//Maximum message length sent by OSN Rpc service
+#define OSNRPC_HCMAX_MSG				2			//Maximum outstanding messages sent by the client
 #define	OSNRPC_HCMSGHEAD_LEN			sizeof(HC_MESSAGE_HEADER)
-#define	OSNRPC_HBMSGHEAD_LEN			sizeof(HB_MESSAGE_HEADER)
-#define	OSNRPC_HBMAX_MSGPARA_LEN		OSNRPC_HBMAX_MSG_LEN - OSNRPC_HBMSGHEAD_LEN
+#define	OSNRPC_HCMAX_MSGPARA_LEN		OSNRPC_HCMAX_MSG_LEN - OSNRPC_HCMSGHEAD_LEN
 #define	OSN_HBMAX_USERNAME		32			//Maximum length of the username, limited by windows
 #define	OSN_HBMAX_PASSWORD		32			//Maximum length of the password, limited by windows
 
@@ -97,26 +95,14 @@ typedef struct HC_MESSAGE_HEADER
  	unsigned int dataLength;        //4bytes无符号 XML文件长度
 } HC_MESSAGE_HEADER, *PHC_MESSAGE_HEADER;
 
-typedef struct HB_MESSAGE_HEADER
-{
-	unsigned short	retStatus;						//return Status indicating result of the command execution
-	char			flags;							//ASK/RESPONSE
-	char			command;						//PING, CREATE_BACKUP, etc.
-	unsigned short	paraNum;						//number of parameters for this command
-	DWORD	        dataLength;						//parameter data buffer length
-	unsigned int	timeStamp;						//The time (h*60*60+m*60+s[sec]) the message being generated
-	char			initiatorName[OSN_HBMAX_USERNAME];
-	char			initiatorWWN[OSN_HBMAX_PASSWORD];
-} HB_MESSAGE_HEADER, *PHB_MESSAGE_HEADER;
-
-#define OSNRPC_HBCMD_ASK				0x01
-#define OSNRPC_HBCMD_RESPONSE			0x02
-
-#define CMD_HBSTATUS_SUCCESS			0x0000
-#define	CMD_HBSTATUS_FAILED			0x0001
-
-#define OSNRPC_CMD_NOTIFICATION_SET            0x0001
-#define OSNPRC_CMD_GETPARTNER_INFO            0x0002
+//#define OSNRPC_HBCMD_ASK				0x01
+//#define OSNRPC_HBCMD_RESPONSE			0x02
+//
+//#define CMD_HBSTATUS_SUCCESS			0x0000
+//#define	CMD_HBSTATUS_FAILED			0x0001
+//
+//#define OSNRPC_CMD_NOTIFICATION_SET            0x0001
+//#define OSNPRC_CMD_GETPARTNER_INFO            0x0002
 
 
 //Stream6.0
@@ -128,8 +114,24 @@ typedef struct HB_MESSAGE_HEADER
 #define OSN_MSGHEAD_CMD_FLAG_RESPONSE                            0x0004	            //应答命令
 #define OSN_MSGHEAD_PARSE_XML                                    0x0005 			//xml解析方式
 
+#define SYS_TYPE_LINUX                                           ("0")
+#define SYS_TYPE_WINDOWS                                         ("1")
 
+enum st_res_code
+{
+	ST_RES_SUCCESS,
+	ST_RES_FAILED,
+	ST_RES_CMD_FINISHED,
+};
 
+enum st_op_code
+{
+	ST_OP_SCAN_CLIENT = 1,
+	ST_OP_ADD_CLIENTS,
+	ST_OP_DEL_CLIENTS,
+	ST_OP_ADD_BACKUP,
+	ST_OP_ESTABLISH_CHANNELS,
+};
 
 #define OSN_REMOTE_CMD_SCANCLIENT                                0x0006	            //发现客添加客户端
 #define OSN_REMOTE_CMD_FINDNEWCLIENT                             0x0007             //询问客户端是否可添加

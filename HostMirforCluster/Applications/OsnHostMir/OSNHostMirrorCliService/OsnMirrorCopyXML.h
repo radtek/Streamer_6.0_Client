@@ -19,44 +19,48 @@ public:
 	CVolumeInfoList *pVolumeList;
 	CDiskInfoList   *pDiskList;
 	wstring         *ImagePath;  //delete
-	char            ClientID[64];
+
+	char            *m_ClientID;
+	char            *m_ServerIP;
+	char            *m_ServerID;
+	char            *m_TargetIqn;
+	char            *m_TargetIPs;
+	bool            m_IsProtected;
 
 	COSNxml       *m_pTempXML;
 	INSTALLTYPE   m_InstallType;
 
 public:
-	COsnMirrorCopyXML()
-	{
-		this->pVolumeMirrorList = new CMirrorInfoList(128);
-		this->pDiskMirrorList = new CMirrorInfoList(128);
-		this->pVolumeList = new CVolumeInfoList(256);
-		this->pDiskList = new CDiskInfoList(256);
-
-		InitializeMembers();
-	}
-
-	~COsnMirrorCopyXML()
-	{
-		delete(m_pTempXML);
-		delete(pVolumeMirrorList);
-		delete(pDiskMirrorList);
-		delete(pVolumeList);
-		delete(pDiskList);
-
-		return ;
-	}
+	COsnMirrorCopyXML();
+	~COsnMirrorCopyXML();
 
 	void COsnMirrorCopyXML::InitializeMembers();
 	void COsnMirrorCopyXML::GetSystemVolumesInfo();
 	void COsnMirrorCopyXML::GetSystemDisksInfo();
 	void COsnMirrorCopyXML::RefreshVolumeListXML();
+	void COsnMirrorCopyXML::RefreshChannelListXML();
+	void COsnMirrorCopyXML::QueryFCChannel();
 	void COsnMirrorCopyXML::RefreshDiskListXML();
 	void COsnMirrorCopyXML::RefreshClientXML();
+	void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo();
+	void COsnMirrorCopyXML::GetDiskCopyMirrorInfo();
+	void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,char sign);
+	void COsnMirrorCopyXML::ReadConfigurationFile();
 	void COsnMirrorCopyXML::WriteConfigurationFile();
+	void COsnMirrorCopyXML::GetSystemMirrorInfo();
 
+	DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pIPAddress,char *pIqn);
+	DWORD COsnMirrorCopyXML::GetSessionIDByIqn(ULONGLONG *pSessionID,ULONGLONG *pAdapterID,char *pIqn);
+	DWORD COsnMirrorCopyXML::DisConnectiSCSIChannel(char *pIPAddress,char *pIqn);
+	DWORD COsnMirrorCopyXML::QueryiSCSIChannel();
+	DWORD COsnMirrorCopyXML::GetIsClusterByGUID(wstring *srcguid,wstring *dstguid);
+	DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid);
+	DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign);
+	DWORD COsnMirrorCopyXML::SetRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign);
+	DWORD COsnMirrorCopyXML::QueryClientID();
 	DWORD COsnMirrorCopyXML::CreateClientID();
-	DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc);
-	DWORD COsnMirrorCopyXML::OSNCloseWMI(IWbemServices *m_pSvc,IWbemLocator *m_pLoc,IEnumWbemClassObject *pEnumerator);
+	DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_t *pResName);
+	DWORD COsnMirrorCopyXML::OSNCloseWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,IEnumWbemClassObject **pEnumerator);
 	DWORD COsnMirrorCopyXML::CharToWchar(const char *pChar,wchar_t *pWchar,int Length);
 	DWORD COsnMirrorCopyXML::WcharToChar(const wchar_t *pWchar,char *pChar,int Length);
 	DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool MirrorType);
@@ -73,6 +77,59 @@ public:
 	bool  COsnMirrorCopyXML::DeleteDiskMirror(wstring *strSrcguid,wstring *strDesguid,bool MirrorType);
 	void  COsnMirrorCopyXML::InitializeVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid,INIT_TYPE type);
 	void  COsnMirrorCopyXML::InitializeDiskMirror(wstring *pSrcGuid,wstring *pDesGuid);
+
+	wstring* COsnMirrorCopyXML::GetClusterResourceName(wstring *srcguid,wstring *dstguid);
+};
+
+class CWmi
+{
+public :
+	CWmi(WCHAR *wmiClass)  
+    {  
+        m_pclsObj  = NULL;  
+        m_pLoc     = NULL;  
+        m_pSvc     = NULL;  
+        m_pclsEnum = NULL;  
+		memset(m_WmiClass,0,sizeof(m_WmiClass));
+		memcpy(m_WmiClass,wmiClass,wcslen(wmiClass)*sizeof(WCHAR));
+        //CoInitializeEx(0, COINIT_MULTITHREADED);  
+    }  
+
+	bool Init(wchar_t *lpszWMIObj,  wchar_t *lpszWhere=NULL);
+
+	void Release();
+
+	HRESULT GetMethod(LPCTSTR lpszMethodName, IWbemClassObject **ppIn);
+
+	//SAFEARRAY数组转bstr_t  
+    static bstr_t SafeArrayToString(SAFEARRAY *psa);
+
+	static UCHAR *SafeArrayToUInt8(SAFEARRAY *psa,int * charSize);
+
+	 //获取索引指定对象的的属性 
+	bool    GetObjectProp(int iObj, LPCTSTR lpszPropName ,_variant_t *vtProp ,VARTYPE varType);  
+
+	//返回查询到得总数  
+    inline int GetObjCount()  
+    {  
+        return m_clslist.size();  
+    }  
+  
+    ~CWmi()  
+    {  
+        Release();  
+       // CoUninitialize();  
+    }  
+private:
+public:
+	WCHAR         m_WmiClass[128];
+	IWbemLocator  *m_pLoc;  
+	IWbemServices *m_pSvc;  
+
+	IEnumWbemClassObject  *m_pclsEnum;  
+	IWbemClassObject      *m_pclsObj;  
+
+	vector<IWbemClassObject *> m_clslist;  
 };
 
 #endif
