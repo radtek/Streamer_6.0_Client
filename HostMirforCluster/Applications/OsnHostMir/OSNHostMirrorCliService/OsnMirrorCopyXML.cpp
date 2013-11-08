@@ -1,12 +1,12 @@
-#include <fstream> 
+#include "atlbase.h"
 #include "OsnMirrorCopyXML.h"
 #include "Configure.h"
 #include "OSNRpcSocket.h"
 #include "OSNRpcServer.h"
 #include "OSNService.h"
 #include "NewMirror.h"
-#include "atlbase.h"
-
+#include "Common.h"
+#include <fstream> 
 
 extern	COSNService			*pOSNService;
 
@@ -15,8 +15,9 @@ COsnMirrorCopyXML::COsnMirrorCopyXML()
 	m_ClientID         = NULL;
 	m_ServerIP         = NULL;
 	m_ServerID         = NULL;
-	m_TargetIqn       = NULL;
+	m_TargetIqn        = NULL;
 	m_TargetIPs        = NULL;
+	m_InitiatorIPs        = NULL;
 
 	pVolumeMirrorList  = NULL;
 	pDiskMirrorList    = NULL;
@@ -55,6 +56,18 @@ COsnMirrorCopyXML::COsnMirrorCopyXML()
 	}
 
 	ImagePath = new wstring(L"C:\\Program Files\\Enterprise Information Management\\OSN HostMirror");
+	ImagePathString = new string("C:\\Program Files\\Enterprise Information Management\\OSN HostMirror\\HC_Log\\LOG_");
+
+	google::InitGoogleLogging("C:\\Program Files\\Enterprise Information Management\\OSN HostMirror\\OSNCliService.exe");
+	google::SetLogDestination(google::INFO,ImagePathString->c_str());   //INFO级别的日志都存放到installPath目录下
+	google::SetLogDestination(google::ERROR,ImagePathString->c_str());  //ERROR级别的日志都存放到installPath目录下
+	google::SetLogDestination(google::WARNING,ImagePathString->c_str());//WARNING级别的日志都存放到installPath目录下
+	google::SetStderrLogging(google::INFO);                             //输出到标准输出的时候大于INFO级别的都输出；
+
+	FLAGS_logbufsecs  = 0;                                              //日志实时输出
+	FLAGS_max_log_size = 1024;                                          // max log size is 1024M
+
+	LOG(INFO) << "Start COsnMirrorCopyXML";
 	InitializeMembers();
 }
 
@@ -82,16 +95,21 @@ COsnMirrorCopyXML::~COsnMirrorCopyXML()
 		delete(m_ClientID);
 
 	if(m_ServerIP != NULL)
-		delete(m_ServerIP);
+		delete [] m_ServerIP;
 
 	if(m_ServerID != NULL)
-		delete(m_ServerID);
+		delete [] m_ServerID;
 
 	if(m_TargetIqn != NULL)
-		delete(m_TargetIqn);
+		delete [] m_TargetIqn;
 
 	if(m_TargetIPs != NULL)
-		delete(m_TargetIPs);
+		delete [] m_TargetIPs;
+
+	if(m_InitiatorIPs != NULL)
+	{
+		delete [] m_InitiatorIPs;
+	}
 
 	return ;
 }
@@ -191,86 +209,24 @@ DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValu
 	return ret;
 }
 
-//DWORD COsnMirrorCopyXML::QueryClientID()
-//{
-//	CRegKey *pRegKey = new CRegKey();
-//	ULONG nChars = sizeof(ClientID);
-//
-//	if(pRegKey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService") == ERROR_SUCCESS)
-//	{
-//		if(pRegKey->QueryStringValue("ClientID",ClientID,&nChars) != ERROR_SUCCESS)
-//		{
-//			pRegKey->Close();
-//			delete(pRegKey);
-//			return EXIT_FAILURE;
-//		}
-//
-//		pRegKey->Close();
-//		delete(pRegKey);
-//		return EXIT_SUCCESS;
-//	}
-//	else
-//	{
-//		delete(pRegKey);
-//		return EXIT_FAILURE;
-//	}
-//}
-//
-//DWORD COsnMirrorCopyXML::CreateClientID()
-//{
-//	GUID guid;
-//	ULONG nChars = sizeof(ClientID);
-//	CRegKey *pRegKey = new CRegKey();
-//
-//	if(S_OK == CoCreateGuid(&guid))
-//	{
-//		OsnGUIDToString(ClientID,guid);
-//		if(pRegKey->Open(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService")!= ERROR_SUCCESS)
-//		{
-//			if(pRegKey->Create(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Services\\OSNHCService") != ERROR_SUCCESS)
-//			{
-//				delete(pRegKey);
-//				return EXIT_FAILURE;
-//			}
-//
-//			pRegKey->SetStringValue("ClientID",ClientID);
-//
-//			pRegKey->Close();
-//			delete(pRegKey);
-//			return EXIT_SUCCESS;
-//		}
-//		else
-//		{
-//			if(pRegKey->QueryStringValue("ClientID",ClientID,&nChars) != ERROR_SUCCESS)
-//			{
-//				pRegKey->SetStringValue("ClientID",ClientID);
-//			}
-//
-//			pRegKey->Close();
-//			delete(pRegKey);
-//			return EXIT_SUCCESS;
-//		}
-//	}
-//
-//	delete(pRegKey);
-//	return EXIT_FAILURE;
-//}
-
 void COsnMirrorCopyXML::InitializeMembers()
 {
+	LOG(INFO) << "Start InitializeMembers";
+
 	GetSystemDisksInfo();
 	GetSystemVolumesInfo();
+	LOG(INFO) << "szf";
 	ReadConfigurationFile();
 
-	/*try
-	{*/
-		GetSystemMirrorInfo();
-		//RefreshComputerNode();
-	/*}
-	catch(Exception^ exx)
+	try
 	{
-	myEventLog->OSNWriteEventLog(String::Concat("获取基本信息时出现异常：",exx->Message->ToString()),EventLogEntryType::Error,024);
-	}*/
+		GetSystemMirrorInfo();
+	}
+	catch(exception err)
+	{
+		LOG(ERROR) << "获取基本信息时出现异常：" << err.what();
+	}
+	LOG(INFO) << "szf1";
 }
 
 DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_t *pResName)
@@ -284,7 +240,7 @@ DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc
 
 	if (FAILED(hres))
 	{
-		printf("CoCreateInstance error\n");
+		LOG(INFO) << "CoCreateInstance error\n";
 		//CoUninitialize();
 		return EXIT_FAILURE;       // Program has failed.
 	}
@@ -302,7 +258,7 @@ DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc
 		);                             
 	if (FAILED(hres))
 	{
-		printf("ConnectServer error\n");
+		LOG(INFO) << "ConnectServer error\n";
 		//m_pLoc->Release();    
 		//CoUninitialize();
 		return EXIT_FAILURE;                // Program has failed.
@@ -322,7 +278,7 @@ DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc
 
 	if (FAILED(hres))
 	{
-		printf("CoSetProxyBlanket error\n");
+		LOG(INFO) << "CoSetProxyBlanket error\n";
 		//m_pSvc->Release();
 		//m_pLoc->Release();    
 		//CoUninitialize();
@@ -402,163 +358,162 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 	unsigned __int64		freesize = 0;
 	char                    DiskGUIDC[128];
 	wchar_t                 DiskGUIDW[128];
-	// clear the previous list
-	//try
-	//{
-	IWbemServices          *m_pSvc = NULL;
-	IWbemLocator           *m_pLoc = NULL;
-	IEnumWbemClassObject   *pEnumerator = NULL;
 
-	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
-	if(dw == EXIT_FAILURE)
+	try
 	{
-		printf("Init WMI error!\n");
-		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
-		return;
-	}
+		IWbemServices          *m_pSvc = NULL;
+		IWbemLocator           *m_pLoc = NULL;
+		IEnumWbemClassObject   *pEnumerator = NULL;
 
-	HRESULT hres;
-	hres = m_pSvc->ExecQuery(
-		bstr_t("WQL"),
-		bstr_t("SELECT * FROM Win32_LogicalDisk"),
-		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
-		NULL,
-		&pEnumerator
-		);
-	if (FAILED(hres))
-	{
-		printf("pSvc->ExecQuery error\n");
-		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
-		return ;               // Program has failed.
-	}
-	IWbemClassObject *pclsObj;
-	ULONG uReturn = 0;
-
-	while(pEnumerator)
-	{
-		// 推出下一个对象
-		pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
-		//没有东西了就跳出去吧
-		if(0 == uReturn)
+		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
+		if(dw == EXIT_FAILURE)
 		{
-			break;
+			LOG(INFO) << "Init WMI error!\n";
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+			return;
 		}
 
-		VARIANT vtProp;
-		pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
-		wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
-
-		OSNGetDiskGUIDByVolume(*VolumeLabel->c_str(),DiskGUIDC);
-		CharToWchar(DiskGUIDC,DiskGUIDW,_countof(DiskGUIDW));
-		wstring *diskguid = new wstring(DiskGUIDW);
-
-		pclsObj->Get(L"FileSystem", 0, &vtProp, 0, 0);
-		wstring *VolumeLabe2	= new wstring(vtProp.bstrVal);
-		if(wcscmp(VolumeLabe2->c_str(),L"NTFS") == 0)
+		HRESULT hres;
+		hres = m_pSvc->ExecQuery(
+			bstr_t("WQL"),
+			bstr_t("SELECT * FROM Win32_LogicalDisk"),
+			WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+			NULL,
+			&pEnumerator
+			);
+		if (FAILED(hres))
 		{
-			Filesys = NTFS;
+			LOG(INFO) << "pSvc->ExecQuery error\n";
+			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+			return ;               // Program has failed.
 		}
-		else if(wcscmp(VolumeLabe2->c_str(),L"FAT32") == 0)
-		{
-			Filesys = FAT32;
-		}
-		else if(wcscmp(VolumeLabe2->c_str(),L"EXT3") == 0)
-		{
-			Filesys = EXT3;
-		}
-		else if(wcscmp(VolumeLabe2->c_str(),L"EXT4") == 0)
-		{
-			Filesys = EXT4;
-		}
-		else
-		{
-			Filesys = FUnknown;
-		}
+		IWbemClassObject *pclsObj;
+		ULONG uReturn = 0;
 
-		pclsObj->Get(L"Size", 0, &vtProp, 0, 0);
-		size = _wtoi64(vtProp.bstrVal);
-		size = size / 512;
-		VariantClear(&vtProp);
-
-		pclsObj->Get(L"FreeSpace", 0, &vtProp, 0, 0);
-		freesize = _wtoi64(vtProp.bstrVal);
-		freesize = freesize / 512;
-		VariantClear(&vtProp);
-
-		unsigned int	signature = 0;	
-		unsigned int	startingOffset = 0;
-
-		wchar_t Name = *(VolumeLabel->c_str());
-
-		ErrorCode = OSNGetVolumeID(Name, signature, startingOffset);
-		if(ErrorCode==0)
+		while(pEnumerator)
 		{
-			size=0;
-			char char_guid[128];
-			bool ret=OsnCHeckIsGPTVolume((const char)*(VolumeLabel->c_str()),char_guid);
-			wstring *guid = NULL;
-			if(ret)
+			// 推出下一个对象
+			pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+			//没有东西了就跳出去吧
+			if(0 == uReturn)
 			{
-				wchar_t   lpszFileW[256];
-				CharToWchar(char_guid,lpszFileW,_countof(lpszFileW));
-				guid=new wstring(lpszFileW);
+				break;
+			}
 
-				GUID guid0;
+			VARIANT vtProp;
+			pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
+			wstring *VolumeLabel	= new wstring(vtProp.bstrVal);	//C:, D:, E:, etc.
 
-				char   lpszFileC[256];
-				WcharToChar((wchar_t *)(guid->c_str()),lpszFileC,sizeof(lpszFileC));
-				char* chguid = lpszFileC;
+			OSNGetDiskGUIDByVolume(*VolumeLabel->c_str(),DiskGUIDC);
+			CharToWchar(DiskGUIDC,DiskGUIDW,_countof(DiskGUIDW));
+			wstring *diskguid = new wstring(DiskGUIDW);
 
-				OsnGUIDFromString(chguid,&guid0);
-				int ret=OsnVolumeCopyGetVolumeSize(guid0,size);
-				/*if(0!=ret)
-				{
-				myEventLog->OsnHostMirrorLog(String::Concat("获取到的volume的size出现错误,errorcode=",ret.ToString()));
-				}
-				else
-				{
-				myEventLog->OsnHostMirrorLog(String::Concat("获取到的volume:",VolumeLabel,"的size=",Convert::ToString(size)));
-				}*/
+			pclsObj->Get(L"FileSystem", 0, &vtProp, 0, 0);
+			wstring *VolumeLabe2	= new wstring(vtProp.bstrVal);
+			if(wcscmp(VolumeLabe2->c_str(),L"NTFS") == 0)
+			{
+				Filesys = NTFS;
+			}
+			else if(wcscmp(VolumeLabe2->c_str(),L"FAT32") == 0)
+			{
+				Filesys = FAT32;
+			}
+			else if(wcscmp(VolumeLabe2->c_str(),L"EXT3") == 0)
+			{
+				Filesys = EXT3;
+			}
+			else if(wcscmp(VolumeLabe2->c_str(),L"EXT4") == 0)
+			{
+				Filesys = EXT4;
 			}
 			else
 			{
-				VOLUMEID volume;
-				volume.MBP_VolumeID.m_BlockOffset=startingOffset;
-				volume.MBP_VolumeID.m_DiskSignature=signature;
-				volume.MBP_VolumeID.m_NotUsed1=0;
-				OsnGUIDToString(char_guid,volume.SAN_VolumeID.m_VolumeGuid);
+				Filesys = FUnknown;
+			}
 
-				wchar_t   lpszFile[256];
-				CharToWchar(char_guid,lpszFile,_countof(lpszFile));
-				guid=new wstring(lpszFile);		
+			pclsObj->Get(L"Size", 0, &vtProp, 0, 0);
+			size = _wtoi64(vtProp.bstrVal);
+			size = size / 512;
+			VariantClear(&vtProp);
 
-				int ret=OsnVolumeCopyGetVolumeSize(volume.SAN_VolumeID.m_VolumeGuid,size);
-				/*if(0!=ret)
+			pclsObj->Get(L"FreeSpace", 0, &vtProp, 0, 0);
+			freesize = _wtoi64(vtProp.bstrVal);
+			freesize = freesize / 512;
+			VariantClear(&vtProp);
+
+			unsigned int	signature = 0;	
+			unsigned int	startingOffset = 0;
+
+			wchar_t Name = *(VolumeLabel->c_str());
+
+			ErrorCode = OSNGetVolumeID(Name, signature, startingOffset);
+			if(ErrorCode==0)
+			{
+				size=0;
+				char char_guid[128];
+				bool ret=OsnCHeckIsGPTVolume((const char)*(VolumeLabel->c_str()),char_guid);
+				wstring *guid = NULL;
+				if(ret)
 				{
-				myEventLog->OsnHostMirrorLog(String::Concat("获取到的volume的size出现错误,errorcode=",ret.ToString()));
+					wchar_t   lpszFileW[256];
+					CharToWchar(char_guid,lpszFileW,_countof(lpszFileW));
+					guid=new wstring(lpszFileW);
+
+					GUID guid0;
+
+					char   lpszFileC[256];
+					WcharToChar((wchar_t *)(guid->c_str()),lpszFileC,sizeof(lpszFileC));
+					char* chguid = lpszFileC;
+
+					OsnGUIDFromString(chguid,&guid0);
+					int ret=OsnVolumeCopyGetVolumeSize(guid0,size);
+					if(0!=ret)
+					{
+						LOG(ERROR) << "获取到的volume的size出现错误,errorcode:" << ret;
+					}
+					else
+					{
+						LOG(INFO) << "获取到的volume:" << VolumeLabel->c_str() << "的size=" << size;
+					}
 				}
 				else
 				{
-				myEventLog->OsnHostMirrorLog(String::Concat("获取到的volume:",VolumeLabel,"的size=",Convert::ToString(size)));
-				}*/
+					VOLUMEID volume;
+					volume.MBP_VolumeID.m_BlockOffset=startingOffset;
+					volume.MBP_VolumeID.m_DiskSignature=signature;
+					volume.MBP_VolumeID.m_NotUsed1=0;
+					OsnGUIDToString(char_guid,volume.SAN_VolumeID.m_VolumeGuid);
+
+					wchar_t   lpszFile[256];
+					CharToWchar(char_guid,lpszFile,_countof(lpszFile));
+					guid=new wstring(lpszFile);		
+
+					int ret=OsnVolumeCopyGetVolumeSize(volume.SAN_VolumeID.m_VolumeGuid,size);
+					if(0!=ret)
+					{
+						LOG(ERROR) << "获取到的volume的size出现错误,errorcode=" << ret;
+					}
+					else
+					{
+						LOG(INFO) << "获取到的volume:" << VolumeLabel->c_str() << "的size=" << size;
+					}
+				}
+
+				CVolumeInfo	*pVolumeInfo = new CVolumeInfo(Free,size,size-freesize,guid,VolumeLabel,diskguid,(FileSys)Filesys,OnLine);
+
+				if(this->pVolumeList->GetVolumeInfo(guid) == NULL)
+					this->pVolumeList->AddItem((DWORD)pVolumeInfo);
 			}
 
-			CVolumeInfo	*pVolumeInfo = new CVolumeInfo(Free,size,size-freesize,guid,VolumeLabel,diskguid,(FileSys)Filesys,OnLine);
-
-			if(this->pVolumeList->GetVolumeInfo(guid) == NULL)
-				this->pVolumeList->AddItem((DWORD)pVolumeInfo);
+			pclsObj->Release();
+			delete(VolumeLabe2);
 		}
-		
-		pclsObj->Release();
-		delete(VolumeLabe2);
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 	}
-	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
-	//}
-	/*catch(Exception ^e)
+	catch(exception err)
 	{
-	MessageBox::Show("获取分区出异常.");
-	MessageBox::Show(e->Message);
-	}*/
+		LOG(ERROR) << "获取分区出异常:" << err.what();
+	}
 }
 
 
@@ -566,8 +521,8 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 {
 	this->pDiskList ->Clear();
 
-	//try
-	//{
+	try
+	{
 	IWbemServices          *m_pSvc = NULL;
 	IWbemLocator           *m_pLoc = NULL;
 	IEnumWbemClassObject   *pEnumerator = NULL;
@@ -575,7 +530,7 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 	if(dw == EXIT_FAILURE)
 	{
-		printf("Init WMI error!\n");
+		LOG(INFO) << "Init WMI error!\n";
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return;
 	}
@@ -594,7 +549,7 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 		);
 	if (FAILED(hres))
 	{
-		printf("pSvc->ExecQuery error\n");
+		LOG(INFO) << "pSvc->ExecQuery error\n";
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return ;               // Program has failed.
 	}
@@ -646,11 +601,11 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 		pclsObj->Release();
 	}
 	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
-	//}
-	//catch(Exception^ exx)
-	//{
-	//myEventLog->OSNWriteEventLog(String::Concat("GetSystemDisksInfo,ERROR:",exx->Message->ToString()),EventLogEntryType::Error,024);
-	//}
+	}
+	catch(exception err)
+	{
+		LOG(ERROR) << "GetSystemDisksInfo,ERROR:" << err.what();
+	}
 }
 
 void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,char sign)
@@ -677,7 +632,7 @@ void COsnMirrorCopyXML::ReadConfigurationFile()
 	fstream fiHost(pImagePath,ios::in);
 	if(!fiHost.is_open())
 	{
-		printf("ReadConfigurationFile OSNHostMirror.cfg error!");
+		LOG(INFO) << "ReadConfigurationFile OSNHostMirror.cfg error!";
 		return ;
 	}
 
@@ -804,8 +759,8 @@ void COsnMirrorCopyXML::GetSystemMirrorInfo()
 
 void COsnMirrorCopyXML::GetDiskCopyMirrorInfo()
 {
-	/*try
-	{*/
+	try
+	{
 		MIRROR_INFO MirrorInfo ;
 		for( int i=0;i<this->pDiskList->GetLength();i++)
 		{
@@ -868,11 +823,11 @@ void COsnMirrorCopyXML::GetDiskCopyMirrorInfo()
 			}
 		}
 		WriteConfigurationFile();
-	/*}
-	catch(Exception^ exx)
+	}
+	catch(exception err)
 	{
-		myEventLog->OSNWriteEventLog(String::Concat("GetDiskCopyMirrorInfo,error：",exx->Message->ToString()),EventLogEntryType::Error,024);
-	}*/
+		LOG(ERROR) << "GetDiskCopyMirrorInfo,error：" << err.what();
+	}
 }
 
 wstring* COsnMirrorCopyXML::GetClusterResourceName(wstring *srcguid,wstring *dstguid)
@@ -889,7 +844,7 @@ wstring* COsnMirrorCopyXML::GetClusterResourceName(wstring *srcguid,wstring *dst
 	fstream fiHost(pImagePath,ios::in);
 	if(!fiHost.is_open())
 	{
-		printf("GetClusterResourceName OSNHostMirror.cfg error!");
+		LOG(INFO) << "GetClusterResourceName OSNHostMirror.cfg error!";
 		return RetName;
 	}
 
@@ -1030,7 +985,7 @@ DWORD COsnMirrorCopyXML::GetIsClusterByGUID(wstring *srcguid,wstring *dstguid)
 	fstream fiHost(pImagePath,ios::in);
 	if(!fiHost.is_open())
 	{
-		printf("GetIsClusterByGUID OSNHostMirror.cfg error!");
+		LOG(INFO) << "GetIsClusterByGUID OSNHostMirror.cfg error!";
 		return 2;
 	}
 
@@ -1175,7 +1130,7 @@ DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid)
 	fstream fiHost(pImagePath,ios::in);
 	if(!fiHost.is_open())
 	{
-		printf("GetEimModebyGUID OSNHostMirror.cfg error!");
+		LOG(INFO) << "GetEimModebyGUID OSNHostMirror.cfg error!";
 		return 2;
 	}
 
@@ -1277,8 +1232,8 @@ DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid)
 
 void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo()
 {
-	/*try
-	{*/
+	try
+	{
 		MIRROR_INFO MirrorInfo ;
 		for( int i=0;i<this->pVolumeList->GetLength();i++)
 		{
@@ -1286,8 +1241,8 @@ void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo()
 			if(pVolumeInfo->m_Role!=Free)
 				continue;
 
-			/*try
-			{*/
+			try
+			{
 				GUID Srcguid0;
 				char SrcguidC[64];
 				WcharToChar(pVolumeInfo->m_GUID->c_str(),SrcguidC,sizeof(SrcguidC));
@@ -1299,14 +1254,14 @@ void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo()
 
 				MirrorInfo.m_SourceVolume.SAN_VolumeID.m_VolumeGuid=Srcguid0;
 				MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid=Tgtguid0;
-			/*}
-			catch(Exception^ ee)
+			}
+			catch(exception err)
 			{
-				myEventLog->OSNWriteEventLog(String::Concat("Osnguid from string,error：",ee->Message->ToString()),EventLogEntryType::Error,024);
-			}*/
+				LOG(ERROR) << "Osnguid from string,error：" << err.what();
+			}
 
-			/*try
-			{*/
+			try
+			{
 				int ErrorCode = OsnVolumeCopyGetMirrorInfo(&MirrorInfo);
 				if(ErrorCode==0)
 				{   
@@ -1348,19 +1303,18 @@ void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo()
 						this->pVolumeMirrorList->AddItem((DWORD)pMirrorInfo);
 					}
 				}
-			/*}
-			catch(Exception^ exxx)
+			}
+			catch(exception err)
 			{
-				myEventLog->OSNWriteEventLog(String::Concat("OsnVolumeCopyGetMirrorInfo,error：",exxx->Message->ToString()),EventLogEntryType::Error,024);
-			}*/
+				LOG(ERROR) << "OsnVolumeCopyGetMirrorInfo,error：" << err.what();
+			}
 		}
 		WriteConfigurationFile();
-	/*}
-	catch(Exception^ exx)
+	}
+	catch(exception err)
 	{
-		myEventLog->OSNWriteEventLog(String::Concat("GetVolumeCopyMirrorInfo,error：",exx->Message->ToString()),EventLogEntryType::Error,024);
-
-	}*/
+		LOG(ERROR) << "GetVolumeCopyMirrorInfo,error：" << err.what();
+	}
 }
 
 void COsnMirrorCopyXML::QueryFCChannel()
@@ -1384,8 +1338,6 @@ void COsnMirrorCopyXML::QueryFCChannel()
 				pObject->Get(L"PortWWN",0,&vtProp2,0,0);
 				SAFEARRAY *psa = V_ARRAY(&vtProp2);
 				portWWN = pWmi->SafeArrayToUInt8(psa,&charSize);
-				for(int j = 0 ;j<charSize;++j)
-					printf("%x",portWWN[j]);
 
 				m_pTempXML->AddXMLChannelElement("ChannelList","Channel");
 				m_pTempXML->AddXMLAttribute("Channel","Type","FC");
@@ -1401,11 +1353,129 @@ void COsnMirrorCopyXML::QueryFCChannel()
 	delete pWmi;
 }
 
-DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pIPAddress,char *pIqn)
+DWORD COsnMirrorCopyXML::QueryPortNameByIP(char *pInitiatorIP,char *pPortName,char **ppHBAName)
+{
+	IWbemServices          *m_pSvc = NULL;
+	IWbemLocator           *m_pLoc = NULL;
+	IEnumWbemClassObject   *pEnumerator = NULL;
+	IWbemClassObject       **m_pclsObj = NULL;
+	IWbemClassObject       *m_pclsObj1 = NULL;
+	IWbemClassObject       *pclsObj = NULL;
+	VARIANT vtProp;
+	VARIANT vtProp0;
+	VARIANT vtProp1;
+	VARIANT vtProp2;
+	HRESULT hres;
+
+	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\WMI");
+	if(dw == EXIT_FAILURE)
+	{
+		//LOG(INFO) << "Init WMI error!\n";
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return -1;
+	}
+
+	wchar_t  pWQL[128] = {L"SELECT * FROM MSiSCSI_PortalInfoClass"};
+
+	hres = m_pSvc->ExecQuery(
+		bstr_t("WQL"),
+		pWQL,
+		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+		NULL,
+		&pEnumerator
+		);
+	if (FAILED(hres))
+	{
+		//LOG(INFO) << "pSvc->ExecQuery error\n";
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return 3;               // Program has failed.
+	}
+
+	ULONG uReturn = 0;
+
+	while(pEnumerator)
+	{
+		// 推出下一个对象
+		pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
+		if(0 == uReturn)
+		{
+			break;
+		}
+
+		if(pclsObj->Get(L"InstanceName", 0, &vtProp, 0, 0) == S_OK)
+		{ 
+			char *pTemp = new char[strlen((_bstr_t)vtProp.bstrVal) + 1];
+			strcpy(pTemp,(_bstr_t)vtProp.bstrVal);
+			*ppHBAName = pTemp;
+		}
+		if(pclsObj->Get(L"PortalInfoCount", 0, &vtProp, 0, 0) == S_OK)
+		{
+			VARTYPE vt;
+
+			hres = pclsObj->Get(L"PortalInformation", 0, &vtProp1, 0, 0);
+
+			SAFEARRAY *psa = V_ARRAY(&vtProp1);
+			SafeArrayGetVartype(psa,&vt);
+			HRESULT hr=SafeArrayAccessData(psa,(void HUGEP**)&m_pclsObj);
+
+			if(vt == VT_UNKNOWN)
+			{
+				for(int count=0;count<vtProp.lVal;count++)
+				{
+					if(m_pclsObj[count]->Get(L"IPAddr", 0, &vtProp0, 0, 0) == S_OK)
+					{
+						m_pclsObj1 = (IWbemClassObject *)vtProp0.punkVal;
+
+						char *p = NULL;
+						if(m_pclsObj1->Get(L"IpV4Address", 0, &vtProp2, 0, 0) == S_OK)
+						{
+							in_addr ad;
+							ad.S_un.S_addr = vtProp2.lVal;
+							p = inet_ntoa(ad);
+						}
+						if(strcmp(p,pInitiatorIP) == 0)
+						{
+							if(m_pclsObj[count]->Get(L"Index", 0, &vtProp0, 0, 0) == S_OK)
+							{
+								*pPortName = vtProp0.ullVal + '0';
+								break;
+							}
+						}
+					}
+				}
+			}
+			hr  = SafeArrayUnaccessData(psa);
+		}
+	}
+
+	VariantClear(&vtProp);
+	VariantClear(&vtProp0);
+	VariantClear(&vtProp1);
+	VariantClear(&vtProp2);
+
+	if(pclsObj != NULL)
+	{
+		pclsObj->Release();
+	}
+	if(m_pclsObj1 != NULL)
+	{
+		m_pclsObj1->Release();
+	}
+
+	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+
+	return 0;
+}
+
+DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pTargetIP,char *pInitiatorIP,char *pIqn)
 {
 	//Connect to server
+	char *pHBAName = NULL;
+	char PortName;
+
+	QueryPortNameByIP(pInitiatorIP,&PortName,&pHBAName);
 	string s("iscsicli AddTargetPortal ");
-	s = s + pIPAddress + " " + "3260";
+	s = s + pTargetIP + " " + "3260" + " " + pHBAName + " " + PortName + " * * * * * * * * * *";
 	DWORD dw = system(s.c_str());
 
 	// Login to server
@@ -1414,6 +1484,11 @@ DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pIPAddress,char *pIqn)
 			s = "iscsicli LoginTarget ";
 			s = s + pIqn + " " + "T * * * * * * * * * * * * * * * 0";
 			dw = system(s.c_str());
+	}
+
+	if(pHBAName != NULL)
+	{
+
 	}
 
 	return dw;
@@ -1434,7 +1509,7 @@ DWORD COsnMirrorCopyXML::GetSessionIDByIqn(ULONGLONG *pSessionID,ULONGLONG *pAda
 	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\WMI");
 	if(dw == EXIT_FAILURE)
 	{
-		printf("Init WMI error!\n");
+		LOG(INFO) << "Init WMI error!\n";
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return -1;
 	}
@@ -1450,7 +1525,7 @@ DWORD COsnMirrorCopyXML::GetSessionIDByIqn(ULONGLONG *pSessionID,ULONGLONG *pAda
 		);
 	if (FAILED(hres))
 	{
-		printf("pSvc->ExecQuery error\n");
+		LOG(INFO) << "pSvc->ExecQuery error\n";
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return 3;               // Program has failed.
 	}
@@ -1556,7 +1631,7 @@ DWORD COsnMirrorCopyXML::QueryiSCSIChannel()
 	DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\WMI");
 	if(dw == EXIT_FAILURE)
 	{
-		printf("Init WMI error!\n");
+		LOG(INFO) << "Init WMI error!\n";
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return -1;
 	}
@@ -1572,7 +1647,7 @@ DWORD COsnMirrorCopyXML::QueryiSCSIChannel()
 		);
 	if (FAILED(hres))
 	{
-		printf("pSvc->ExecQuery error\n");
+		LOG(INFO) << "pSvc->ExecQuery error\n";
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return 3;               // Program has failed.
 	}
@@ -1745,16 +1820,19 @@ void COsnMirrorCopyXML::RefreshClientXML()
 DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool MirrorType)
 {
 	DWORD ErrorCode =0;
+
+	LOG(INFO) << "NewMirror start.";
+
 	if(MirrorType == 0) // volume node
 	{
 		if(this->m_InstallType == DiskCopy)
 		{
-			printf("当前安装版本不支持卷复制");
+			LOG(INFO) << "当前安装版本不支持卷复制";
 			return EXIT_FAILURE;
 		}
 		if(this->pVolumeMirrorList->GetLength()>128)
 		{
-			printf("You have exceeded the maximum number of mirrors ");
+			LOG(INFO) << "You have exceeded the maximum number of mirrors ";
 			return EXIT_FAILURE;
 		}
 
@@ -1764,18 +1842,18 @@ DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool Mirr
 		CVolumeInfo *pSelectVolume = this->pVolumeList->GetVolumeInfoByString(pSrcGuid);
 		if(pSelectVolume == NULL)
 		{
-			printf("无法获取驱动器信息");
+			LOG(INFO) << "无法获取驱动器信息";
 			return EXIT_FAILURE;
 		}
 
 		if(CheckVolIsBootable(pSelectVolume->m_VolumeLable))
 		{
-			printf("不支持对系统卷做镜像,请选择非系统卷.");
+			LOG(INFO) << "不支持对系统卷做镜像,请选择非系统卷.";
 			return EXIT_FAILURE;
 		}
 		if(pSelectVolume->m_Role != Free)
 		{
-			printf("该卷已经存在镜像关系中，不能再创建镜像关系.");
+			LOG(INFO) << "该卷已经存在镜像关系中，不能再创建镜像关系.";
 			return EXIT_FAILURE;
 		}
 		
@@ -1785,13 +1863,13 @@ DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool Mirr
 	{
 		if(this->m_InstallType == VolumeCopy)
 		{
-			printf("当前安装版本不支持磁盘复制");
+			LOG(INFO) << "当前安装版本不支持磁盘复制";
 			return EXIT_FAILURE;
 		}
 
 		if(this->pDiskMirrorList->GetLength()>128)
 		{
-			printf("You have exceeded the maximum number of mirrors ");
+			LOG(INFO) << "You have exceeded the maximum number of mirrors ";
 			return EXIT_FAILURE;
 		}
 
@@ -1802,13 +1880,13 @@ DWORD COsnMirrorCopyXML::NewMirror(wstring *pSrcGuid,wstring *pDesGuid,bool Mirr
 		CDiskInfo *pSelectDisk = this->pDiskList->GetDiskInfo(pSrcGuid);
 		if(pSelectDisk == NULL)
 		{
-			printf("无法获取磁盘信息信息");
+			LOG(INFO) << "无法获取磁盘信息信息";
 			return EXIT_FAILURE;
 		}
 
 		if(pSelectDisk->m_Role!=Free)
 		{
-			printf("该卷已经存在镜像关系中，不能再创建镜像关系.");
+			LOG(INFO) << "该卷已经存在镜像关系中，不能再创建镜像关系.";
 			return EXIT_FAILURE;
 		}
 
@@ -1839,9 +1917,9 @@ DWORD COsnMirrorCopyXML::RemoveMirror(wstring *pSrcGuid,wstring *pDesGuid,bool M
 		pVolumeInfo = this->pVolumeList->GetVolumeInfoByString(pSrcGuid);
 		if(!pVolumeInfo)
 		{
-			printf("无法获取此卷信息。");
+			LOG(INFO) << "无法获取此卷信息。";
 			if(delflag)
-				printf("镜像CDP计划删除失败，请手动删除！");
+				LOG(INFO) << "镜像CDP计划删除失败，请手动删除！";
 			return EXIT_FAILURE;
 		}
 
@@ -1855,9 +1933,9 @@ DWORD COsnMirrorCopyXML::RemoveMirror(wstring *pSrcGuid,wstring *pDesGuid,bool M
 		pDiskInfo = this->pDiskList->GetDiskInfo(pSrcGuid);
 		if(!pDiskInfo)
 		{
-			printf("无法获取此磁盘信息。");
+			LOG(INFO) << "无法获取此磁盘信息。";
 			if(delflag)
-				printf("镜像CDP计划删除失败，请手动删除！");
+				LOG(INFO) << "镜像CDP计划删除失败，请手动删除！";
 			return EXIT_FAILURE;
 		}
 
@@ -1866,7 +1944,7 @@ DWORD COsnMirrorCopyXML::RemoveMirror(wstring *pSrcGuid,wstring *pDesGuid,bool M
 	}
 	else
 	{
-		printf("选择无效.");
+		LOG(INFO) << "选择无效.";
 	}
 
 	/*if(sch->Equals("Schedule"))
@@ -1907,8 +1985,8 @@ DWORD COsnMirrorCopyXML::InitMirror(wstring *pSrcGuid,wstring *pDesGuid,bool Mir
 
 void COsnMirrorCopyXML::InitializeVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid,INIT_TYPE type)
 {
-	/*try
-	{*/
+	try
+	{
 		CMirrorInfo *pMirrorInfo = NULL;
 		CVolumeInfo *pSourceInfo = NULL;
 		CVolumeInfo *pTargetInfo = NULL;
@@ -1926,7 +2004,7 @@ void COsnMirrorCopyXML::InitializeVolumeMirror(wstring *pSrcGuid,wstring *pDesGu
 
 			if(pSourceInfo == NULL && pTargetInfo == NULL)
 			{
-				printf("无法获取驱动器信息");
+				LOG(INFO) << "无法获取驱动器信息";
 				return;
 			}
 			else
@@ -1941,19 +2019,19 @@ void COsnMirrorCopyXML::InitializeVolumeMirror(wstring *pSrcGuid,wstring *pDesGu
 		}
 		if(CheckFileSystem(pSourceInfo->m_VolumeLable) != 2)
 		{
-			printf("源卷不是NTFS文件系统，不支持自动精简初始化.");
+			LOG(INFO) << "源卷不是NTFS文件系统，不支持自动精简初始化.";
 			return ;
 		}
 
 		if(pSourceInfo->m_VolumeSize > pTargetInfo->m_VolumeSize)
 		{
-			printf("源卷比目标卷小，请重新设置镜像关系,否则数据不能一致");
+			LOG(INFO) << "源卷比目标卷小，请重新设置镜像关系,否则数据不能一致";
 			return ;
 		}
 
 		if(pMirrorInfo == NULL)
 		{
-			printf("无法获取镜像信息");
+			LOG(INFO) << "无法获取镜像信息";
 			return;
 		}
 
@@ -1975,16 +2053,14 @@ void COsnMirrorCopyXML::InitializeVolumeMirror(wstring *pSrcGuid,wstring *pDesGu
 		unsigned int ErrorCode = OsnStartVolumeCopyInitialization(&MirrorInfo,type);
 		if(ErrorCode !=0)
 		{
-			printf("初始化失败,代码:%d",ErrorCode);
+			LOG(INFO) << "初始化失败,代码:%d",ErrorCode;
 			return;
 		}
-	//}
-	//catch(Exception^ exx)
-	//{
-	//	MessageBox::Show("初始化过程中出现异常，请稍后重试");
-	//	myEventLog->OsnHostMirrorLog(String::Concat("初始化过程中出现异常，异常信息：",exx->Message->ToString()));
-	//	//m_ListViewMutex->ReleaseMutex();
-	//}
+	}
+	catch(exception err)
+	{
+		LOG(ERROR) << "初始化过程中出现异常，异常信息：" << err.what();
+	}
 
 }
 
@@ -2025,8 +2101,8 @@ DWORD COsnMirrorCopyXML::CheckFileSystem(wstring *LabelName)
 
 void COsnMirrorCopyXML::InitializeDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 {
-	/*try
-	{*/
+	try
+	{
 		CMirrorInfo *pMirrorInfo = NULL;
 		CDiskInfo   *pSourceInfo = NULL;
 		CDiskInfo   *pTargetInfo = NULL;
@@ -2040,7 +2116,7 @@ void COsnMirrorCopyXML::InitializeDiskMirror(wstring *pSrcGuid,wstring *pDesGuid
 
 		if(pMirrorInfo == NULL)
 		{
-			printf("无法获取镜像信息");
+			LOG(INFO) << "无法获取镜像信息";
 			return;
 		}
 		//重新获取disk的容量的大小，然后判断源卷和目标卷的大小是否一样，map卷可以扩容会导致大小不一样
@@ -2051,7 +2127,7 @@ void COsnMirrorCopyXML::InitializeDiskMirror(wstring *pSrcGuid,wstring *pDesGuid
 		ErrorCode=OsnGetDisk(&pSourceDisk);
 		if(ErrorCode!=0)
 		{
-			printf("获取disk的容量失败");
+			LOG(INFO) << "获取disk的容量失败";
 			//myEventLog->OsnHostMirrorLog("获取disk的容量失败");
 		}
 		else
@@ -2065,7 +2141,7 @@ void COsnMirrorCopyXML::InitializeDiskMirror(wstring *pSrcGuid,wstring *pDesGuid
 			{
 				if(pSourceDisk.m_DiskSize>pTargetDisk.m_DiskSize)
 				{
-					printf("源盘比目标盘的容量大，请重新设置镜像关系,否则数据不能一致");
+					LOG(INFO) << "源盘比目标盘的容量大，请重新设置镜像关系,否则数据不能一致";
 					return;
 				}
 			}
@@ -2089,16 +2165,14 @@ void COsnMirrorCopyXML::InitializeDiskMirror(wstring *pSrcGuid,wstring *pDesGuid
 		unsigned int Error = OsnStartDiskCopyInitialization(&MirrorInfo);
 		if(Error !=0)
 		{
-			printf("初始化失败,代码:%d",Error);
+			LOG(INFO) << "初始化失败,代码:" << Error;
 			return;
 		}
-	//}
-	//catch(Exception^ exx)
-	//{
-	//	MessageBox::Show("初始化过程中出现异常，请稍后重试");
-	//	myEventLog->OsnHostMirrorLog(String::Concat("初始化过程中出现异常，异常信息：",exx->Message->ToString()));
-	//	// m_ListViewMutex->ReleaseMutex();
-	//}
+	}
+	catch(exception err)
+	{
+		LOG(ERROR) << "初始化过程中出现异常，异常信息：" << err.what();
+	}
 
 }
 
@@ -2134,7 +2208,7 @@ bool  COsnMirrorCopyXML::DeleteVolumeMirror(wstring *strSrcguid,wstring *strDesg
 
 	if(pMirrorInfo == NULL)
 	{
-		printf("无法获取镜像信息");
+		LOG(INFO) << "无法获取镜像信息";
 		return false;
 	}
 
@@ -2160,7 +2234,7 @@ bool  COsnMirrorCopyXML::DeleteVolumeMirror(wstring *strSrcguid,wstring *strDesg
 	{
 		if(MirrorState.m_State == INIT)
 		{
-			printf("镜像关系正在初始化，请先停止初始化.");
+			LOG(INFO) << "镜像关系正在初始化，请先停止初始化.";
 			return false;
 		}
 	}
@@ -2187,7 +2261,7 @@ bool  COsnMirrorCopyXML::DeleteVolumeMirror(wstring *strSrcguid,wstring *strDesg
 	}
 	if(ErrorCode!=0)
 	{
-		printf("删除注册表失败");
+		LOG(INFO) << "删除注册表失败";
 	}
 
 	ErrorCode = OsnRemoveVolumeCopy(&MirrorInfo);
@@ -2212,7 +2286,7 @@ bool  COsnMirrorCopyXML::DeleteVolumeMirror(wstring *strSrcguid,wstring *strDesg
 		{
 			//SetRegistryKey("System\\CurrentControlSet\\Services\\OsnVSS",pMirrorInfo->m_SourceGuid,pMirrorInfo->m_TargetGuid,true,PreviousState,1);
 		}
-		printf("删除镜像出错 ,代码:%d",ErrorCode);
+		LOG(INFO) << "删除镜像出错 ,代码:%d",ErrorCode;
 		return false;
 	}
 	return true;
@@ -2233,7 +2307,7 @@ bool  COsnMirrorCopyXML::DeleteDiskMirror(wstring *strSrcguid,wstring *strDesgui
 
 	if(pMirrorInfo == NULL)
 	{
-		printf("无法获取镜像信息");
+		LOG(INFO) << "无法获取镜像信息";
 		return false;
 	}
 
@@ -2259,7 +2333,7 @@ bool  COsnMirrorCopyXML::DeleteDiskMirror(wstring *strSrcguid,wstring *strDesgui
 	{
 		if(MirrorState.m_State == INIT)
 		{
-			printf("镜像关系正在初始化，请先停止初始化.");
+			LOG(INFO) << "镜像关系正在初始化，请先停止初始化.";
 			return false;
 		}
 	}
@@ -2285,7 +2359,7 @@ bool  COsnMirrorCopyXML::DeleteDiskMirror(wstring *strSrcguid,wstring *strDesgui
 	}
 	if(ErrorCode!=0)
 	{
-		printf("删除注册表失败");
+		LOG(INFO) << "删除注册表失败";
 	}
 
 
@@ -2312,7 +2386,7 @@ bool  COsnMirrorCopyXML::DeleteDiskMirror(wstring *strSrcguid,wstring *strDesgui
 		{
 			//SetRegistryKey("System\\CurrentControlSet\\Services\\OsnDSS",pSou,pDes,true,PreviousState,1);
 		}
-		printf("删除镜像出错 ,代码:%d",ErrorCode);
+		LOG(INFO) << "删除镜像出错 ,代码:" << ErrorCode;
 		return false;
 	}
 	return true;
@@ -2375,8 +2449,8 @@ DWORD COsnMirrorCopyXML::ReadPreviousState(wstring *Key,bool Flag)
 
 DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 {
-	/*try
-	{*/
+	try
+	{
 		IWbemServices          *m_pSvc = NULL;
 		IWbemLocator           *m_pLoc = NULL;
 		IEnumWbemClassObject   *pEnumerator = NULL;
@@ -2384,7 +2458,7 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
-			printf("Init WMI error!\n");
+			LOG(INFO) << "Init WMI error!\n";
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return 3;
 		}
@@ -2402,7 +2476,7 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 			);
 		if (FAILED(hres))
 		{
-			printf("pSvc->ExecQuery error\n");
+			LOG(INFO) << "pSvc->ExecQuery error\n";
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return 3;               // Program has failed.
 		}
@@ -2430,27 +2504,27 @@ DWORD COsnMirrorCopyXML::CheckVolIsBootable(wstring *label)
 		}
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return -1;
-	/*}
-	catch(Exception^ ex)
+	}
+	catch(exception err)
 	{
-		myEventLog->OSNWriteEventLog(String::Concat("CheckVolIsBootable: ",ex->ToString()),EventLogEntryType::Error,011);
-	}*/
+		LOG(ERROR) << "CheckVolIsBootable: " << err.what();
+	}
 }
 
 DWORD COsnMirrorCopyXML::NewVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid)
 {
-	//try
-	//{
+	try
+	{
 		CVolumeInfo *pSelectDriver = this->pVolumeList->GetVolumeInfoByString(pSrcGuid);
 		if(pSelectDriver==NULL)
 		{
-			printf("无法获取驱动器信息");
+			LOG(INFO) << "无法获取驱动器信息";
 			return 1;
 		}
 
 		if(pSelectDriver->m_Role!=Free)
 		{
-			printf("当前驱动器已经有镜像");
+			LOG(INFO) << "当前驱动器已经有镜像";
 			return 1;
 		}
 
@@ -2487,7 +2561,7 @@ DWORD COsnMirrorCopyXML::NewVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid)
 		}
 		if(ErrorCode != 0)
 		{
-			printf("设置镜像出错,代码=%d",ErrorCode);
+			LOG(INFO) << "设置镜像出错,代码=%d",ErrorCode;
 			return 1;
 		}
 
@@ -2515,7 +2589,7 @@ DWORD COsnMirrorCopyXML::NewVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid)
 		}
 		if(ErrorCode!=0)
 		{
-			printf("设置注册表失败.");
+			LOG(INFO) << "设置注册表失败.";
 			OsnRemoveVolumeCopy(&MirrorInfo);
 			return 1;
 		}
@@ -2525,33 +2599,32 @@ DWORD COsnMirrorCopyXML::NewVolumeMirror(wstring *pSrcGuid,wstring *pDesGuid)
 
 		delete(pNewMirror);
 		return 0;
-	//}
-	/*catch(Exception^ exx)
-	{
-		MessageBox::Show("新建镜像过程中出现异常，请稍后重试");
-		myEventLog->OsnHostMirrorLog(String::Concat("新建镜像过程中出现异常，异常信息：",exx->Message->ToString()));
 	}
-	return 1;*/
+	catch(exception err)
+	{
+		LOG(ERROR) << "新建镜像过程中出现异常，异常信息：" << err.what();
+	}
+	return 1;
 }
 
 DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 {
 
-	//try
-	//{
+	try
+	{
 
 		//wstring *guid  = SelectItem->SubItems[1]->Text;
 
 		CDiskInfo *pSelectDisk = this->pDiskList->GetDiskInfo(pSrcGuid);
 		if(pSelectDisk == NULL)
 		{
-			printf("无法获取驱动器信息");
+			LOG(INFO) << "无法获取驱动器信息";
 			return 1;
 		}
 
 		if(pSelectDisk->m_Role!=Free)
 		{
-			printf("当前驱动器已经有镜像.");
+			LOG(INFO) << "当前驱动器已经有镜像.";
 			return 1;
 		}
 
@@ -2561,8 +2634,8 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 
 		MIRROR_INFO MirrorInfo;
 
-		//try
-		//{
+		try
+		{
 			GUID Srcguid0;
 			char SrcguidC[64];
 			WcharToChar((wchar_t*)pNewMirror->pSourceDisk->m_Guid->c_str(),SrcguidC,sizeof(SrcguidC));
@@ -2575,18 +2648,18 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 
 			MirrorInfo.m_SourceVolume.SAN_VolumeID.m_VolumeGuid=Srcguid0;
 			MirrorInfo.m_TargetVolume.SAN_VolumeID.m_VolumeGuid=Tgtguid0;
-		/*}
-		catch(Exception^ exx)
+		}
+		catch(exception err)
 		{
-			MessageBox::Show(String::Concat("new disk mirror error:",exx->Message->ToString()));
+			LOG(ERROR) << "new disk mirror error:" << err.what();
 			return 1;
-		}*/
+		}
 
 		wstring  *ddGuid = new wstring(L"00000000-0000-0000-0000-000000000000");
 		if(pNewMirror->pSourceDisk->m_Guid == ddGuid ||
 			pNewMirror->pTargetDisk->m_Guid == ddGuid)
 		{
-			printf("源盘或目标盘没有初始化，请初始化！");
+			LOG(INFO) << "源盘或目标盘没有初始化，请初始化！";
 			return 1;
 		}
 		delete(ddGuid);
@@ -2602,7 +2675,7 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 		}
 		if(ErrorCode!=0)
 		{
-			printf("设置镜像出错,代码=%d",ErrorCode);
+			LOG(INFO) << "设置镜像出错,代码=" << ErrorCode;
 			return 1;
 		}
 
@@ -2630,7 +2703,7 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 		}
 		if(ErrorCode!=0)
 		{
-			printf("设置注册表失败.");
+			LOG(INFO) << "设置注册表失败.";
 			OsnRemoveDiskCopy(&MirrorInfo);
 			return 1;
 		}
@@ -2641,19 +2714,18 @@ DWORD COsnMirrorCopyXML::NewDiskMirror(wstring *pSrcGuid,wstring *pDesGuid)
 		delete(pNewMirror);
 
 		return 0;
-	/*}
-	catch(Exception^ exx)
+	}
+	catch(exception err)
 	{
-		MessageBox::Show("新建镜像过程中出现异常，请稍后重试");
-		myEventLog->OsnHostMirrorLog(String::Concat("新建镜像过程中出现异常，异常信息：",exx->Message->ToString()));
-	}*/
+		LOG(ERROR) << "新建镜像过程中出现异常，异常信息：" << err.what();
+	}
 	return 1;
 }
 
 void COsnMirrorCopyXML::WriteConfigurationFile()
 {
-	//try
-	//{
+	try
+	{
 		char pImagePath[256];
 		char temp[256];
 		fstream fi;
@@ -2716,11 +2788,11 @@ void COsnMirrorCopyXML::WriteConfigurationFile()
 			fi << endl;
 		}
 		fi.close();
-	/*}
-	catch(Exception^ exx)
+	}
+	catch(exception err)
 	{
-		myEventLog->OSNWriteEventLog(String::Concat("WriteConfigurationFile,ERROR:",exx->Message->ToString()),EventLogEntryType::Error,024);
-	}*/
+		LOG(ERROR) << "WriteConfigurationFile,ERROR:" << err.what();
+	}
 
 }
 

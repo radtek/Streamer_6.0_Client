@@ -10,13 +10,7 @@
 #include "winnt.h"
 #include "winioctl.h"
 
-//#include "..\common\OsnDefs.h"
-//#include "..\common\OSNCommon.h"
-//#include "..\common\OSNNdIoctl.h"
-//#include "..\OSNApi\OSNApi2.h"
-//#include "..\OSNApi\OSNApi.h"
 #include "..\common\OSNLicence.h"
-//#include "..\OsnGui\OsnDmApi\OsnDmApi.h"
 #include "..\OsnVolumeCopyApi\Configure.h"
 #include "Configure.h"
 #include "OSNRpcCommon.h"

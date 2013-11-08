@@ -1,11 +1,12 @@
 #include "NewMirror.h"
 #include "atlbase.h"
 #include "..\OsnVolumeCopyApi\OsnVolumeCopyApi.h"
+#include "Common.h"
 
 DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 {
-	/*try
-	{*/
+	try
+	{
 		IWbemServices          *m_pSvc = NULL;
 		IWbemLocator           *m_pLoc = NULL;
 		IEnumWbemClassObject   *pEnumerator = NULL;
@@ -13,7 +14,7 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
-			printf("Init WMI error!\n");
+			LOG(INFO) << "Init WMI error!\n";
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;
 		}
@@ -31,7 +32,7 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 			);
 		if (FAILED(hres))
 		{
-			printf("pSvc->ExecQuery error\n");
+			LOG(INFO) << "pSvc->ExecQuery error\n";
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return 3;               // Program has failed.
 		}
@@ -70,12 +71,12 @@ DWORD CNewMirror::CheckVolIsBootableOrSys(wstring *label)
 		}
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return 3;
-	//}
-	//catch(...)
-	//{
-	//	// myEventLog->OSNWriteEventLog(String::Concat("CheckVolIsBootable: ",ex->ToString()),EventLogEntryType::Error,011);
-	//}
-	//return false;
+	}
+	catch(exception err)
+	{
+		LOG(ERROR) << "CheckVolIsBootable:" << err.what();
+	}
+	return false;
 }
 
 DWORD CNewMirror::CheckFileSystem(wstring *LabelName)
@@ -159,7 +160,7 @@ DWORD CNewMirror::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_
 
 	if (FAILED(hres))
 	{
-		printf("CoCreateInstance error\n");
+		LOG(INFO) << "CoCreateInstance error\n";
 		//CoUninitialize();
 		return EXIT_FAILURE;       // Program has failed.
 	}
@@ -177,7 +178,7 @@ DWORD CNewMirror::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_
 		);                             
 	if (FAILED(hres))
 	{
-		printf("ConnectServer error\n");
+		LOG(INFO) << "ConnectServer error\n";
 		//m_pLoc->Release();    
 		//CoUninitialize();
 		return EXIT_FAILURE;                // Program has failed.
@@ -197,7 +198,7 @@ DWORD CNewMirror::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_
 
 	if (FAILED(hres))
 	{
-		printf("CoSetProxyBlanket error\n");
+		LOG(INFO) << "CoSetProxyBlanket error\n";
 		//m_pSvc->Release();
 		//m_pLoc->Release();    
 		//CoUninitialize();
@@ -231,16 +232,16 @@ DWORD CNewMirror::OSNCloseWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,IEnum
 
 DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 {
-	/*try
-	{*/
-		IWbemServices         *m_pSvc = NULL;
-		IWbemLocator          *m_pLoc = NULL;
-		IEnumWbemClassObject* pEnumerator = NULL;
+	IWbemServices         *m_pSvc = NULL;
+	IWbemLocator          *m_pLoc = NULL;
+	IEnumWbemClassObject* pEnumerator = NULL;
 
+	try
+	{
 		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
-			printf("Init WMI error!\n");
+			LOG(INFO) << "Init WMI error!\n";
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;
 		}
@@ -258,7 +259,7 @@ DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 			);
 		if (FAILED(hres))
 		{
-			printf("pSvc->ExecQuery error\n");
+			LOG(INFO) << "pSvc->ExecQuery error\n";
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;               // Program has failed.
 		}
@@ -298,61 +299,129 @@ DWORD CNewMirror::CheckDiskIsEIMDisk(int index)
 		}
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 		return -1;
-	/*}
+	}
 	catch(...)
 	{
-		MessageBox::Show("获取磁盘的提供商信息出错，请稍后重试");
-	}*/
+		LOG(INFO) << "获取磁盘的提供商信息出错，请稍后重试";
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return -1;
+	}
 }
 
 DWORD CNewMirror::InitalizeDisk(int index)
 {
-	/*Process^ proc=gcnew Process();
 	try
 	{
-		proc->StartInfo->FileName="diskpart.exe";
-		proc->StartInfo->RedirectStandardError=true;
-		proc->StartInfo->RedirectStandardInput=true;
-		proc->StartInfo->RedirectStandardOutput=true;
-		proc->StartInfo->CreateNoWindow=true;
-		proc->StartInfo->UseShellExecute=false;
-		proc->Start();
-		proc->StandardInput->WriteLine(String::Concat("select disk ",Convert::ToString(index)));
-		proc->StandardInput->Flush();
-		proc->StandardInput->WriteLine("clean");
-		proc->StandardInput->Flush();
-		proc->StandardInput->WriteLine("create partition primary");
-		proc->StandardInput->Flush();
-		proc->StandardInput->WriteLine("delete partition");
-		proc->StandardInput->Flush();
-		proc->StandardInput->WriteLine("exit");
-		proc->StandardInput->Flush();
-		proc->WaitForExit(2000);
-		System::Threading::Thread::Sleep(5*1000);
-		return 0;
+		HANDLE hChildStdinRd = NULL, hChildStdinWr = NULL,hChildStdoutWr = NULL,hChildStdoutRd = NULL;
+		SECURITY_ATTRIBUTES saAttr; 
+
+		// Set the bInheritHandle flag so pipe handles are inherited. 
+
+		saAttr.nLength = sizeof(SECURITY_ATTRIBUTES); 
+		saAttr.bInheritHandle = TRUE; 
+		saAttr.lpSecurityDescriptor = NULL;
+
+		if (! CreatePipe(&hChildStdoutRd, &hChildStdoutWr, &saAttr, 0))
+		{
+			printf("Stdout pipe creation failed\n");
+			return 1;
+		}
+		SetHandleInformation( hChildStdoutRd, HANDLE_FLAG_INHERIT, 0);
+
+		if (! CreatePipe(&hChildStdinRd, &hChildStdinWr, &saAttr, 0)) 
+		{
+			printf("Stdin pipe creation failed\n");
+			return 1;
+		}
+		SetHandleInformation( hChildStdinWr, HANDLE_FLAG_INHERIT, 0);
+
+		// Now create the child process. 
+		TCHAR szCmdline[]=TEXT("diskpart.exe");
+		PROCESS_INFORMATION piProcInfo; 
+		STARTUPINFO siStartInfo;
+		BOOL bFuncRetn = FALSE; 
+
+		ZeroMemory( &piProcInfo, sizeof(PROCESS_INFORMATION) );
+		ZeroMemory( &siStartInfo, sizeof(STARTUPINFO) );
+		siStartInfo.cb = sizeof(STARTUPINFO); 
+		siStartInfo.hStdError = hChildStdoutWr;
+		siStartInfo.hStdOutput = hChildStdoutWr;       //控制台窗口
+		siStartInfo.hStdInput = hChildStdinRd;         //键盘
+		siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+		bFuncRetn = CreateProcess(NULL, 
+			szCmdline,     // command line 
+			NULL,          // process security attributes 
+			NULL,          // primary thread security attributes 
+			TRUE,          // handles are inherited 
+			0,             // creation flags 
+			NULL,          // use parent's environment 
+			NULL,          // use parent's current directory 
+			&siStartInfo,  // STARTUPINFO pointer 
+			&piProcInfo);  // receives PROCESS_INFORMATION 
+
+		if (bFuncRetn == 0) 
+		{
+			printf("CreateProcess failed\n");
+			return 1;
+		}
+		else 
+		{
+			CloseHandle(piProcInfo.hProcess);
+			CloseHandle(piProcInfo.hThread);
+		}
+
+		// Write to pipe that is the standard input for a child process. 
+		DWORD dwWritten;
+		char pIndex[5];
+		itoa(index,pIndex,10);
+		string s = "select disk ";
+		s += pIndex;
+		WriteFile(hChildStdinWr, s.c_str(),s.size()+1, &dwWritten, NULL);
+		WriteFile(hChildStdinWr, "clean",sizeof("clean"), &dwWritten, NULL);
+		WriteFile(hChildStdinWr, "create partition primary",sizeof("create partition primary"), &dwWritten, NULL);
+		WriteFile(hChildStdinWr, "delete partition",sizeof("delete partition"), &dwWritten, NULL);
+		WriteFile(hChildStdinWr, "exit",sizeof("exit"), &dwWritten, NULL);
+
+		if(hChildStdinRd == NULL)
+		{
+			CloseHandle(hChildStdinRd);
+		}
+		if(hChildStdinWr == NULL)
+		{
+			CloseHandle(hChildStdinWr);
+		}
+		if(hChildStdoutWr == NULL)
+		{
+			CloseHandle(hChildStdoutWr);
+		}
+		if(hChildStdoutRd == NULL)
+		{
+			CloseHandle(hChildStdoutRd);
+		}
+		Sleep(5000);
+		return 0; 
 	}
 	catch(...)
 	{
-		MessageBox::Show(String::Concat("初始化磁盘出现异常,请手动初始化磁盘",Convert::ToString(index)));
+		LOG(ERROR) << "初始化磁盘出现异常,请手动初始化磁盘:" << index;
 		return 1;
-	}*/
-	int szf = 1;
-	return szf;
+	}
 }
 
 ///1 eim disk 2,don't eim disk ,o get failed
 DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 {
-	/*try
-	{*/
-		IWbemServices *m_pSvc = NULL;
-		IWbemLocator  *m_pLoc = NULL;
-		IEnumWbemClassObject* pEnumerator = NULL;
+	IWbemServices *m_pSvc = NULL;
+	IWbemLocator  *m_pLoc = NULL;
+	IEnumWbemClassObject* pEnumerator = NULL;
 
+	try
+	{
 		DWORD dw = OSNInitWMI(&m_pSvc,&m_pLoc,L"ROOT\\CIMV2");
 		if(dw == EXIT_FAILURE)
 		{
-			printf("Init WMI error!\n");
+			LOG(INFO) << "Init WMI error!\n";
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 			return -1;
 		}
@@ -371,7 +440,7 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 		if (FAILED(hres))
 		{
 			OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
-			printf("pSvc->ExecQuery error\n");
+			LOG(INFO) << "pSvc->ExecQuery error\n";
 			return -1;               // Program has failed.
 		}
 		IWbemClassObject *pclsObj;
@@ -397,14 +466,13 @@ DWORD CNewMirror::CheckVolIsEIMVol(wstring *LabelName)
 				return CheckDiskIsEIMDisk(Index2); 
 			}
 		}
-	/*}
+	}
 	catch(...)
 	{
-		MessageBox::Show("获取卷的提供商信息失败，请稍后重试");
-
-	}*/
-	OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
-	return -1;
+		LOG(INFO) << "获取卷的提供商信息失败，请稍后重试";
+		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
+		return -1;
+	}
 }
 void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 {
@@ -416,7 +484,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 
 	if(pTargetVolume == NULL)
 	{
-		printf("无法获取目标驱动器");
+		LOG(INFO) << "无法获取目标驱动器";
 		return;
 	}
 
@@ -449,7 +517,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 
 	if(!isEIMMirror&&2==ret&&2==ret1)
 	{
-		printf("源卷和目标卷都不是EIM卷，不能建镜像关系！");
+		LOG(INFO) << "源卷和目标卷都不是EIM卷，不能建镜像关系！";
 		delete(pRegKey);
 		return ;
 	}
@@ -480,7 +548,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 		}
 		else if(2==ret)
 		{
-			printf("目标卷不是EIM卷");
+			LOG(INFO) << "目标卷不是EIM卷";
 		}
 	}
 	//else if(4==this->m_EIMMode)//both
@@ -504,20 +572,20 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 
 	if(tgtret>1||srcret>1)
 	{
-		printf("源卷和目标卷中有一个卷处于被保护状态或者其他未知状态，请检查是否处于镜像关系中，或者是已经删除镜像关系但要重启后生效");
+		LOG(INFO) << "源卷和目标卷中有一个卷处于被保护状态或者其他未知状态，请检查是否处于镜像关系中，或者是已经删除镜像关系但要重启后生效";
 		delete(pRegKey);
 		return;
 	}
 
 	if(this->pSourceVolume->m_VolumeSize>pTargetVolume->m_VolumeSize)
 	{
-		printf("镜像卷比源卷小");
+		LOG(INFO) << "镜像卷比源卷小";
 	}
 
 	int isbootvol=CheckVolIsBootableOrSys(this->pTargetVolume->m_VolumeLable);
 	if(isbootvol)
 	{
-		printf("镜像卷是系统卷或者是启动卷，不能设置为镜像卷，请选择其他卷");
+		LOG(INFO) << "镜像卷是系统卷或者是启动卷，不能设置为镜像卷，请选择其他卷";
 		delete(pRegKey);
 		return;
 	}
@@ -526,7 +594,7 @@ void CNewMirror::VolumeMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	int ErrorCode = CheckFileSystem(this->pTargetVolume->m_VolumeLable);
 	if(ErrorCode!=0)
 	{
-		printf("镜像卷已经有文件系统存在");
+		LOG(INFO) << "镜像卷已经有文件系统存在";
 	}
 
 	delete(pRegKey);
@@ -540,7 +608,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	this->pTargetDisk = this->pSystemDiskList ->GetDiskInfoByString(pDesGuid);
 	if(pTargetDisk == NULL)
 	{
-		printf("无法获取目标驱动器");
+		LOG(INFO) << "无法获取目标驱动器";
 		return;
 	}
 
@@ -572,7 +640,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	int ret1=CheckDiskIsEIMDisk(this->pSourceDisk->m_DiskIndex);
 	if(!isEIMMirror&&2==ret&&2==ret1)
 	{
-		printf("源磁盘和目标磁盘都不是EIM卷，不能建镜像关系！");
+		LOG(INFO) << "源磁盘和目标磁盘都不是EIM卷，不能建镜像关系！";
 		delete(pRegKey);
 		return ;
 	}
@@ -602,7 +670,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 		}
 		else if(2==ret)
 		{
-			printf("目标卷不是EIM卷");
+			LOG(INFO) << "目标卷不是EIM卷";
 		}
 	}
 	//else if(4==this->m_EIMMode)//both
@@ -629,13 +697,13 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	//MessageBox::Show(String::Concat("source=",srcret.ToString()));
 	if(tgtret>1||srcret>1)
 	{
-		printf("源卷和目标卷中有一个卷处于被保护状态或者其他未知状态，请检查是否处于镜像关系中，或者是已经删除镜像关系但要重启后生效");
+		LOG(INFO) << "源卷和目标卷中有一个卷处于被保护状态或者其他未知状态，请检查是否处于镜像关系中，或者是已经删除镜像关系但要重启后生效";
 		delete(pRegKey);
 		return;
 	}
 	if(tgtret!=srcret)
 	{
-		printf("源卷和目标卷一个是MBR磁盘，一个是GPT磁盘，不能创建镜像关系,请重新选择目标卷");
+		LOG(INFO) << "源卷和目标卷一个是MBR磁盘，一个是GPT磁盘，不能创建镜像关系,请重新选择目标卷";
 		delete(pRegKey);
 		return;
 	}
@@ -643,7 +711,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 	int ErrorCode =OSNCheckDiskRawProperty(pTargetDisk->m_DiskIndex);
 	if(ErrorCode!=0)
 	{
-		printf("镜像磁盘已经有分区存在");
+		LOG(INFO) << "镜像磁盘已经有分区存在";
 	}
 	if(this->pTargetDisk->m_Guid->compare(L"00000000-0000-0000-0000-000000000000"))//没有初始化，需要执行初始化操作
 	{
@@ -676,7 +744,7 @@ void CNewMirror::DiskMirrorClick(wstring *pSrcGuid,wstring *pDesGuid)
 
 	if(this->pSourceDisk->m_DiskSize>this->pTargetDisk->m_DiskSize)
 	{
-		printf("镜像磁盘比源磁盘要小");
+		LOG(INFO) << "镜像磁盘比源磁盘要小";
 	}
 
 	delete(pRegKey);

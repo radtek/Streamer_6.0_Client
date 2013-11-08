@@ -19,12 +19,14 @@ public:
 	CVolumeInfoList *pVolumeList;
 	CDiskInfoList   *pDiskList;
 	wstring         *ImagePath;  //delete
+	string          *ImagePathString;//delete
 
 	char            *m_ClientID;
 	char            *m_ServerIP;
 	char            *m_ServerID;
 	char            *m_TargetIqn;
 	char            *m_TargetIPs;
+	char            *m_InitiatorIPs;
 	bool            m_IsProtected;
 
 	COSNxml       *m_pTempXML;
@@ -49,7 +51,8 @@ public:
 	void COsnMirrorCopyXML::WriteConfigurationFile();
 	void COsnMirrorCopyXML::GetSystemMirrorInfo();
 
-	DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pIPAddress,char *pIqn);
+	DWORD COsnMirrorCopyXML::QueryPortNameByIP(char *pInitiatorIP,char *pPortName,char **ppHBAName);
+	DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pTargetIP,char *pInitiatorIP,char *pIqn);
 	DWORD COsnMirrorCopyXML::GetSessionIDByIqn(ULONGLONG *pSessionID,ULONGLONG *pAdapterID,char *pIqn);
 	DWORD COsnMirrorCopyXML::DisConnectiSCSIChannel(char *pIPAddress,char *pIqn);
 	DWORD COsnMirrorCopyXML::QueryiSCSIChannel();

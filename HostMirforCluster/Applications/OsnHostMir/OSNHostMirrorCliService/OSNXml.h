@@ -2,6 +2,7 @@
 #define _OSNXML_H
 
 #include <stdlib.h>
+#include "Common.h"
 
 #import <msxml6.dll>
 using namespace MSXML2;
@@ -26,7 +27,7 @@ public:
 		HRESULT hr = m_pDoc.CreateInstance(__uuidof(DOMDocument60)); 
 		if (FAILED(hr))
 		{
-			printf("cannot create DOMDocument60! \n");
+			LOG(INFO) << "cannot create DOMDocument60! \n";
 		}
 	}
 

@@ -211,7 +211,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;OsnHostMirApi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libglog.lib;ws2_32.lib;OsnHostMirApi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>..\..\..\Target\win2k\chk\storagetrust\i386\OSNCliService.exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <AdditionalLibraryDirectories>..\..\..\target\win2k\chk\storagetrust\i386;..\Library\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
