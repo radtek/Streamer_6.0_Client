@@ -1,6 +1,5 @@
 // OSNRpcSocket.cpp: implementation of the COSNRpcSocket class.
-//
-//////////////////////////////////////////////////////////////////////
+//    
 
 #define _CRT_SECURE_NO_DEPRECATE 1
 #define _CRT_NON_CONFORMING_SWPRINTFS 1
@@ -11,7 +10,6 @@
 
 #include "Configure.h"
 #include <assert.h>
-//#include "..\OSNService\OSNRpcCommon.h"
 #include "OSNRpcSocket.h"
 #include "OSNRpcServer.h"
 

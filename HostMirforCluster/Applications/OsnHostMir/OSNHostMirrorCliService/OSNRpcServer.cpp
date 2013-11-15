@@ -11,7 +11,6 @@
 #include "Configure.h"
 
 #include <assert.h>
-//#include "..\OSNService\OSNRpcCommon.h"
 #include "..\OsnVolumeCopyApi\Configure.h"
 #include "OSNRpcSocket.h"
 #include "OSNRpcServer.h"

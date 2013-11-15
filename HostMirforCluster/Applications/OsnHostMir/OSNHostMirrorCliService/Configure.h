@@ -128,7 +128,6 @@ enum st_op_code
 	ST_OP_ESTABLISH_CHANNELS,
 };
 
-#define OSN_REMOTE_CMD_SCANCLIENT                                0x0006	            //发现客添加客户端
 #define OSN_REMOTE_CMD_FINDNEWCLIENT                             0x0007             //询问客户端是否可添加
 #define OSN_REMOTE_CMD_ADDCLIENT                                 0x0008             //管理端向服务器发送客户端添加请求
 #define OSN_REMOTE_CMD_SETADDCLIENTMARK                          0x0009             //服务器向客户端发送添加请求

@@ -76,6 +76,4 @@ protected:
 
 };
 
-
-
 #endif // _OSNRPCSOCKET_H_

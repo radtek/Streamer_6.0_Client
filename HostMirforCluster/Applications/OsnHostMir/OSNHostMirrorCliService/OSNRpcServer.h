@@ -83,6 +83,7 @@ public:
 	SOCKET	      m_SocketAccept;
 	SOCKADDR_IN   m_SocketAddr;
 
+public:
 	COSNMsgAccept()
 	{
 		pMsg           = NULL;
