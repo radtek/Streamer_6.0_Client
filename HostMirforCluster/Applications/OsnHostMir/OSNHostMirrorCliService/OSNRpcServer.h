@@ -41,6 +41,7 @@ public:
 
 	//stream
 	bool OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader);
+	inline void  COSNRpcServer::OSNRpcRetMsgHeader(PHC_MESSAGE_HEADER pMsgHeader,unsigned short rtnStatus,BYTE parseType,unsigned short flag,unsigned int dataLength);
 	DWORD OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,char *SysVersion);
 	DWORD OSNRpcGetSysVersion(char *pSysVersion);
 	DWORD OSNRpcGetServiceInfo(DWORD pXML);
@@ -49,7 +50,7 @@ public:
 	DWORD OSNRpcInitMirror(DWORD pXML);
 	DWORD OSNRpcGetInitMirrorRate(DWORD pXML);
 	DWORD OSNRpcGetiSCSIChannel(DWORD pXML);
-	DWORD OSNRpcSetServiceInfo();
+	DWORD OSNRpcSetServiceInfo(DWORD pXML);
 	DWORD OSNRpcGetClientInfo();
 
 	char * OSNRpcGetIPsInfo();

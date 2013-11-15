@@ -118,17 +118,14 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 	SOCKET   sockConn;   
 	
 	pOSNRpcServer->m_pCopyXML           = new COsnMirrorCopyXML();
-	LOG(INFO) << "szf2";
 	while (pOSNRpcServer->OSNRpcState() == OSNRPC_RUNNING)
 	{
-		LOG(INFO) << "szf3";
 		if(!pOSNRpcServer->m_startSocketSuccess)
 		{
 			pOSNService->LogMessage("socket hav'not Bind");
 			Sleep(30000);
 			continue;
 		}
-		LOG(INFO) << "szf4";
 		//recieve message failed, go to the next loop, continue waiting
 		if (pOSNRpcServer->OSNRpcServerReceiveMsg(sinAccept,&sockConn))
 		{
@@ -136,7 +133,6 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 			pOSNRpcServer->OSNRpcProcessRequest(sinAccept,sockConn);
 		}
 
-		LOG(INFO) << "szf5";
 		//if it is stopping OSN Rpc service command, break the loop
 		if (pOSNRpcServer->OSNRpcState() == OSNRPC_STOP)
 		{
@@ -418,29 +414,63 @@ DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,char *
 	return EXIT_SUCCESS;
 }
 
-DWORD COSNRpcServer::OSNRpcSetServiceInfo()
+DWORD COSNRpcServer::OSNRpcSetServiceInfo(DWORD pXML)
 {
 	char pTargetIP[16];
+	char ServerID[64];
+	char ClientID[64];
+	wchar_t pUnicode[256];
+	memset(pUnicode,0,256*sizeof(wchar_t));
 
 	LOG(INFO) << "OSNRpcSetServiceInfo start.";
-
+	COSNxml *pXMLTemp = new COSNxml();
+	
 	try
 	{
-		m_pCopyXML->MoveNext(m_pCopyXML->m_TargetIPs,pTargetIP,' ');
+		if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+		{
+			pXMLTemp->LoadFile(pUnicode);
+
+			pXMLTemp->GetXMLNodeAttribute("Streamer/Server","ID",ServerID,64);
+			pXMLTemp->GetXMLNodeAttribute("Streamer/Client","ID",ClientID,64);
+
+			if(strcmp(m_pCopyXML->m_ServerID,ServerID) != 0 || strcmp(m_pCopyXML->m_ClientID,ClientID) != 0)
+			{
+				delete(pXMLTemp);
+				return EXIT_FAILURE;
+			}
+		}
+		else
+		{
+			delete(pXMLTemp);
+			return EXIT_FAILURE;
+		}
+	}
+	catch(...)
+	{
+		LOG(ERROR) << "exception occured when remove Client";
+		return EXIT_FAILURE;
+	}
+	
+	delete(pXMLTemp);
+	try
+	{
+		m_pCopyXML->MoveNext(m_pCopyXML->m_TargetIPs,pTargetIP,sizeof(pTargetIP),' ');
 		m_pCopyXML->DisConnectiSCSIChannel(pTargetIP,m_pCopyXML->m_TargetIqn);
 
 		m_pCopyXML->m_IsProtected = false;
 		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_pCopyXML->m_IsProtected,BoolKey);
 
 		memset(m_pCopyXML->m_ServerIP,0,strlen(m_pCopyXML->m_ServerIP));
-		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP","0",StringKey);
+		m_pCopyXML->DelRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP");
 
-		memset(m_pCopyXML->m_ServerID,0,strlen(m_pCopyXML->m_ServerID));
-		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID","0",StringKey);
+		memset(m_pCopyXML->m_ServerID,0,64);
+		m_pCopyXML->DelRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID");
 	}
-	catch(exception err)
+	catch(...)
 	{
-		LOG(ERROR) << "删除客户端出现异常：" << err.what();
+		LOG(ERROR) << "删除客户端出现异常：";
+		return EXIT_FAILURE;
 	}
 	
 	return EXIT_SUCCESS;
@@ -562,14 +592,14 @@ DWORD COSNRpcServer::OSNRpcGetiSCSIChannel(DWORD pXML)
 	{
 		pXMLTemp->LoadFile(pUnicode);
 
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel","TargetIqn",&m_pCopyXML->m_TargetIqn);
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel","TargetIqn",m_pCopyXML->m_TargetIqn,bufsize);
 		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",m_pCopyXML->m_TargetIqn,StringKey);
 
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel/Path","TargetIP",&m_pCopyXML->m_TargetIPs);
-		m_pCopyXML->MoveNext(m_pCopyXML->m_TargetIPs,TargetIP,' ');
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel/Path","TargetIP",m_pCopyXML->m_TargetIPs,bufsize);
+		m_pCopyXML->MoveNext(m_pCopyXML->m_TargetIPs,TargetIP,sizeof(TargetIP),' ');
 
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel/Path","InitiatorIP",&m_pCopyXML->m_InitiatorIPs);
-		m_pCopyXML->MoveNext(m_pCopyXML->m_InitiatorIPs,InitiatorIP,' ');
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Channel/Path","InitiatorIP",m_pCopyXML->m_InitiatorIPs,bufsize);
+		m_pCopyXML->MoveNext(m_pCopyXML->m_InitiatorIPs,InitiatorIP,sizeof(InitiatorIP),' ');
 
 		dw = m_pCopyXML->ConnectiSCSIChannel(TargetIP,InitiatorIP,m_pCopyXML->m_TargetIqn);
 	}
@@ -635,9 +665,9 @@ DWORD COSNRpcServer::OSNRpcInitMirror(DWORD pXML)
 DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
 {
 	bool MirrorTypeB;
-	char *MirrorTypeC = NULL;
-	char *SrcGUIDC = NULL;
-	char *DesGUIDC = NULL;
+	char MirrorTypeC[5];
+	char SrcGUIDC[64];
+	char DesGUIDC[64];
 	wchar_t SrcGUIDW[64];
 	wchar_t DesGUIDW[64];
 	wchar_t pUnicode[256];
@@ -654,15 +684,15 @@ DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
 	{
 		pXMLTemp->LoadFile(pUnicode);
 
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","SrcGUID",&SrcGUIDC);
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","SrcGUID",SrcGUIDC,64);
 		m_pCopyXML->CharToWchar(SrcGUIDC,SrcGUIDW,_countof(SrcGUIDW));
 		pSrc = new wstring(SrcGUIDW);
 
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","DestGUID",&DesGUIDC);
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","DestGUID",DesGUIDC,64);
 		m_pCopyXML->CharToWchar(DesGUIDC,DesGUIDW,_countof(DesGUIDW));
 		pDes = new wstring(DesGUIDW);
 
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","Type",&MirrorTypeC);
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","Type",MirrorTypeC,5);
 		if(strcmp(MirrorTypeC,"0") == 0)
 		{
 			MirrorTypeB = 0;//volume
@@ -679,21 +709,6 @@ DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
 	}
 
 	DWORD dw = m_pCopyXML->NewMirror(pSrc,pDes,MirrorTypeB);
-
-	if(SrcGUIDC != NULL)
-	{
-		delete [] SrcGUIDC;
-	}
-
-	if(DesGUIDC != NULL)
-	{
-		delete [] DesGUIDC;
-	}
-
-	if(MirrorTypeC != NULL)
-	{
-		delete [] MirrorTypeC;
-	}
 
 	delete(pXMLTemp);
 	delete(pSrc);
@@ -719,11 +734,11 @@ DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
 		m_pCopyXML->m_IsProtected = true;
 		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_pCopyXML->m_IsProtected,BoolKey);
 
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","ID",&m_pCopyXML->m_ServerIP);
-		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP",m_pCopyXML->m_ServerIP,StringKey);
-
-		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","IPs",&m_pCopyXML->m_ServerID);
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","ID",m_pCopyXML->m_ServerID,64);
 		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID",m_pCopyXML->m_ServerID,StringKey);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","IPs",m_pCopyXML->m_ServerIP,bufsize);
+		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP",m_pCopyXML->m_ServerIP,StringKey);
 		
 		status = EXIT_SUCCESS;
 	}
@@ -760,6 +775,8 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 	{
 	case ST_OP_SCAN_CLIENT:
 		{
+			//m_pCopyXML           = new COsnMirrorCopyXML();
+
 			LOG(INFO) << "ST_OP_SCAN_CLIENT CMD start.";
 
 			COSNxml *pXMLTemp = new COSNxml();
@@ -777,24 +794,14 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 					pXMLTemp->AddXMLAttribute("Client","SystemType",SYS_TYPE_WINDOWS);
 					pXMLTemp->AddXMLAttribute("Client","SystemVersion",SysVersion);
 					pXMLTemp->AddXMLAttribute("Client","ID",m_pCopyXML->m_ClientID);
+
 					DWORD size = pXMLTemp->GetXMLText(pXMLText);
-
-					pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
-					pMsgHeader->rtnStatus = ST_RES_SUCCESS;
-					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-					pMsgHeader->dataLength = size;
-
+					OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,size);
 					LOG(INFO) << "ST_OP_SCAN_CLIENT CMD is successful!";
 				}
 				else
 				{
-					pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
-					pMsgHeader->rtnStatus = ST_RES_FAILED;
-					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-					pMsgHeader->dataLength = 0;
-
+					OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 					LOG(INFO) << "ST_OP_SCAN_CLIENT CMD is failed(OSNRpcGetBasicInfo)!";
 				}
 				if(IPs != NULL)
@@ -804,12 +811,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 			}
 			else
 			{
-				pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_SCAN_CLIENT CMD is failed(m_IsProtected is true)!";
 			}
 
@@ -831,31 +833,18 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				if(EXIT_SUCCESS == dw)
 				{
 					DWORD size = m_pCopyXML->m_pTempXML->GetXMLText(pXMLText);
-
-					pMsgHeader->rtnStatus = ST_RES_SUCCESS;
-					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-					pMsgHeader->dataLength = size;
-
+					OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,size);
 					LOG(INFO) << "ST_OP_ADD_CLIENTS CMD successful!";
 				}
 				else
 				{
-					pMsgHeader->rtnStatus = ST_RES_FAILED;
-					pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-					pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-					pMsgHeader->dataLength = 0;
-
+					OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 					LOG(INFO) << "ST_OP_ADD_CLIENTS CMD failed(OSNRpcGetClientInfo)!";
 				}
 			}
 			else
 			{
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_ADD_CLIENTS CMD failed(OSNRpcGetServiceInfo)!";
 			}
 			delete(m_pCopyXML->m_pTempXML);
@@ -869,24 +858,24 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 			COSNxml *pXMLTemp = new COSNxml();
 			pXMLTemp->CreateXMLFile("Streamer");
 
-			dw = OSNRpcSetServiceInfo();
-			if(EXIT_SUCCESS == dw)
+			if(m_pCopyXML->m_IsProtected != false)
 			{
-				pMsgHeader->rtnStatus = ST_RES_SUCCESS;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
-				LOG(INFO) << "ST_OP_DEL_CLIENTS CMD successful!";
+				dw = OSNRpcSetServiceInfo((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+				if(EXIT_SUCCESS == dw)
+				{
+					OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+					LOG(INFO) << "ST_OP_DEL_CLIENTS CMD successful!";
+				}
+				else
+				{
+					OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+					LOG(INFO) << "ST_OP_DEL_CLIENTS CMD failed(OSNRpcSetServiceInfo)!";
+				}
 			}
 			else
 			{
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
-				LOG(INFO) << "ST_OP_DEL_CLIENTS CMD failed(OSNRpcSetServiceInfo)!";
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+				LOG(INFO) << "Client has been removed already!";
 			}
 			delete(pXMLTemp);
 		}
@@ -902,20 +891,12 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 			dw = OSNRpcSetMirror((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
 			{
-				pMsgHeader->rtnStatus = ST_RES_SUCCESS;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_ADD_BACKUP CMD successful!";
 			}
 			else
 			{
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_ADD_BACKUP CMD failed(OSNRpcSetMirror)!";
 			}
 			delete(pXMLTemp);
@@ -940,10 +921,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
 				DWORD size = pXMLTemp->GetXMLText(pXMLText);
 
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = size;
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,size);
 			}
 			delete(pXMLTemp);
 		}
@@ -967,10 +945,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
 				DWORD size = pXMLTemp->GetXMLText(pXMLText);
 
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = size;
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,size);
 			}
 			delete(pXMLTemp);
 		}
@@ -994,10 +969,7 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				pXMLTemp->AddXMLAttribute("Error","Errorinfo","0");
 				DWORD size = pXMLTemp->GetXMLText(pXMLText);
 
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = size;
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,size);
 			}
 			delete(pXMLTemp);
 		}
@@ -1013,20 +985,12 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 			dw = OSNRpcGetiSCSIChannel((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
 			{
-				pMsgHeader->rtnStatus = ST_RES_SUCCESS;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_ESTABLISH_CHANNELS CMD successful!";
 			}
 			else
 			{
-				pMsgHeader->rtnStatus = ST_RES_FAILED;
-				pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;		
-				pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAG_RESPONSE;		
-				pMsgHeader->dataLength = 0;
-
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_ESTABLISH_CHANNELS CMD failed(OSNRpcGetiSCSIChannel)!";
 			}
 			delete(pXMLTemp);
@@ -1035,6 +999,14 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 	}
 
 	return true;
+}
+
+inline void  COSNRpcServer::OSNRpcRetMsgHeader(PHC_MESSAGE_HEADER pMsgHeader,unsigned short rtnStatus,BYTE parseType,unsigned short flag,unsigned int dataLength)
+{
+	pMsgHeader->rtnStatus  = rtnStatus;
+	pMsgHeader->parseType  = parseType;		
+	pMsgHeader->flag       = flag;		
+	pMsgHeader->dataLength = dataLength;
 }
 
 //Process the income command

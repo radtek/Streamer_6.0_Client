@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include "Common.h"
+#include "MirrorUIConfigure.h"
 
 #import <msxml6.dll>
 using namespace MSXML2;
@@ -50,7 +51,7 @@ public:
 
 	DWORD GetXMLText(char *Msg);
 	DWORD GetXMLNodeText(char *pRootName,char *pNodeName,char *pOutBuffer);
-	DWORD GetXMLNodeAttribute(char *pAbsolutePath,char *pAttributeName,char **pOutBuffer);
+	DWORD GetXMLNodeAttribute(char *pAbsolutePath,char *pAttributeName,char *pOutBuffer,int Length);
 
 	DWORD UnicodeToUTF_8(wchar_t *pUnicode ,char *pUtf8);
 	DWORD UTF_8ToUnicode(char *pUtf8 ,wchar_t *pUnicode);

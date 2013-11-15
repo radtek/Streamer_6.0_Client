@@ -4,6 +4,8 @@
 #include <string>
 using namespace std;
 
+#define bufsize 256
+
 enum RegKey
 {
 	BoolKey,

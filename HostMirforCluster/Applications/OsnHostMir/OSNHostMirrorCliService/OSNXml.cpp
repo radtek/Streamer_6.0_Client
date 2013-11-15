@@ -151,10 +151,9 @@ DWORD COSNxml::LoadFile(wchar_t *pXML)
 	return EXIT_SUCCESS;
 }
 
-DWORD COSNxml::GetXMLNodeAttribute(char *pAbsolutePath,char *pAttributeName,char **pOutBuffer)
+DWORD COSNxml::GetXMLNodeAttribute(char *pAbsolutePath,char *pAttributeName,char *pOutBuffer,int Length)
 {
-
-	m_pElement = m_pNode->selectSingleNode((_bstr_t)(char*)pAbsolutePath);
+	m_pElement = (MSXML2::IXMLDOMElementPtr)m_pDoc->selectSingleNode((_bstr_t)(char*)pAbsolutePath);
 	if(m_pElement == NULL)
 	{
 		return EXIT_FAILURE;
@@ -162,9 +161,7 @@ DWORD COSNxml::GetXMLNodeAttribute(char *pAbsolutePath,char *pAttributeName,char
 
 	_variant_t varId;  
     varId = m_pElement->getAttribute(pAttributeName);
-	DWORD buffersize = strlen((_bstr_t)varId.bstrVal);
-	*pOutBuffer = new char[buffersize+1];
-	strcpy_s(*pOutBuffer,buffersize+1,(_bstr_t)varId.bstrVal);
+	strcpy_s(pOutBuffer,Length,(_bstr_t)varId.bstrVal);
 	varId.Clear(); 
 
 	return EXIT_SUCCESS;

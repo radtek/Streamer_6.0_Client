@@ -12,9 +12,7 @@ extern	COSNService			*pOSNService;
 
 COsnMirrorCopyXML::COsnMirrorCopyXML()
 {
-	m_ClientID         = NULL;
 	m_ServerIP         = NULL;
-	m_ServerID         = NULL;
 	m_TargetIqn        = NULL;
 	m_TargetIPs        = NULL;
 	m_InitiatorIPs        = NULL;
@@ -24,44 +22,65 @@ COsnMirrorCopyXML::COsnMirrorCopyXML()
 	pVolumeList        = NULL;
 	pDiskList          = NULL;
 
+	pFilePath          = NULL;
+	pFileMoudlePath    = NULL;
 	ImagePath          = NULL;
 	m_pTempXML         = NULL;
+
+	m_ServerIP = new char[bufsize];
+	m_TargetIqn = new char[bufsize];
+	m_TargetIPs = new char[bufsize];
+	m_InitiatorIPs = new char[bufsize];
 
 	this->pVolumeMirrorList = new CMirrorInfoList(128);
 	this->pDiskMirrorList = new CMirrorInfoList(128);
 	this->pVolumeList = new CVolumeInfoList(256);
 	this->pDiskList = new CDiskInfoList(256);
 
-	if(QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ClientID",&m_ClientID,StringKey) != ERROR_SUCCESS)
+	if(QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ClientID",m_ClientID,64,StringKey) != ERROR_SUCCESS)
 	{
 		GUID guid;
 		CoCreateGuid(&guid);
 		OsnGUIDToString(m_ClientID,guid);
-		SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ClientID",&m_ClientID,StringKey);
+		SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ClientID",m_ClientID,StringKey);
 	}
 
-	if(QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_IsProtected,BoolKey) == ERROR_SUCCESS)
+	if(QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_IsProtected,sizeof(m_IsProtected),BoolKey) == ERROR_SUCCESS)
 	{
 		if(m_IsProtected == true)
 		{
-			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP",&m_ServerIP,StringKey);
-			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID",&m_ServerID,StringKey);
-			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",&m_TargetIqn,StringKey);
-			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",&m_TargetIPs,StringKey);
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP",m_ServerIP,bufsize,StringKey);
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID",m_ServerID,64,StringKey);
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",m_TargetIqn,bufsize,StringKey);
+			QueryRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIqn",m_TargetIPs,bufsize,StringKey);
 		}
 	}
 	else
 	{
 		m_IsProtected = false;
+		SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_IsProtected,BoolKey);
 	}
 
-	ImagePath = new wstring(L"C:\\Program Files\\Enterprise Information Management\\OSN HostMirror");
-	ImagePathString = new string("C:\\Program Files\\Enterprise Information Management\\OSN HostMirror\\HC_Log\\LOG_");
+	pFilePath = new char[256];
+	pFileMoudlePath = new char[256];
+	GetModuleFileName(NULL,(LPTSTR)pFileMoudlePath,256);
+	memcpy(pFilePath,pFileMoudlePath,strlen(pFileMoudlePath) - 17);
+	pFilePath[strlen(pFileMoudlePath) - 18] = '\0';
 
-	google::InitGoogleLogging("C:\\Program Files\\Enterprise Information Management\\OSN HostMirror\\OSNCliService.exe");
-	google::SetLogDestination(google::INFO,ImagePathString->c_str());   //INFO级别的日志都存放到installPath目录下
-	google::SetLogDestination(google::ERROR,ImagePathString->c_str());  //ERROR级别的日志都存放到installPath目录下
-	google::SetLogDestination(google::WARNING,ImagePathString->c_str());//WARNING级别的日志都存放到installPath目录下
+	wchar_t   pFilePathW[256];
+	CharToWchar(pFilePath,pFilePathW,_countof(pFilePathW));
+	ImagePath = new wstring(pFilePathW);
+
+	string s = pFilePath;
+	s += "\\HC_Log";
+	CreateDirectory(s.c_str(),NULL);
+
+	s += "\\LOG_";
+
+	google::InitGoogleLogging(pFileMoudlePath);
+	google::SetLogDestination(google::INFO,s.c_str());   //INFO级别的日志都存放到installPath目录下
+	google::SetLogDestination(google::ERROR,s.c_str());  //ERROR级别的日志都存放到installPath目录下
+	google::SetLogDestination(google::WARNING,s.c_str());//WARNING级别的日志都存放到installPath目录下
 	google::SetStderrLogging(google::INFO);                             //输出到标准输出的时候大于INFO级别的都输出；
 
 	FLAGS_logbufsecs  = 0;                                              //日志实时输出
@@ -91,14 +110,8 @@ COsnMirrorCopyXML::~COsnMirrorCopyXML()
 	if(ImagePath != NULL)
 		delete(ImagePath);
 
-	if(m_ClientID != NULL)
-		delete(m_ClientID);
-
 	if(m_ServerIP != NULL)
 		delete [] m_ServerIP;
-
-	if(m_ServerID != NULL)
-		delete [] m_ServerID;
 
 	if(m_TargetIqn != NULL)
 		delete [] m_TargetIqn;
@@ -111,7 +124,38 @@ COsnMirrorCopyXML::~COsnMirrorCopyXML()
 		delete [] m_InitiatorIPs;
 	}
 
+	if(pFilePath != NULL)
+	{
+		delete [] pFilePath;
+	}
+
+	if(pFileMoudlePath != NULL)
+	{
+		delete [] pFileMoudlePath;
+	}
+	
 	return ;
+}
+
+DWORD COsnMirrorCopyXML::DelRegKey(char *pKeyName,char *pValueName)
+{
+	CRegKey *pRegKey = new CRegKey();
+	DWORD ret = 0;
+
+	if(pRegKey->Open(HKEY_LOCAL_MACHINE,pKeyName)!= ERROR_SUCCESS)
+	{
+		if(pRegKey->Create(HKEY_LOCAL_MACHINE,pKeyName) != ERROR_SUCCESS)
+		{
+			delete(pRegKey);
+			return EXIT_FAILURE;
+		}
+	}
+	
+	ret = pRegKey->DeleteValue(pValueName);
+
+	pRegKey->Close();
+	delete(pRegKey);
+	return ret;
 }
 
 DWORD COsnMirrorCopyXML::SetRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign)
@@ -159,7 +203,7 @@ DWORD COsnMirrorCopyXML::SetRegKey(char *pKeyName,char *pValueName,void *pValue,
 	return ret;
 }
 
-DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign)
+DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValue,int Length,RegKey sign)
 {
 	CRegKey *pRegKey = new CRegKey();
 	ULONG nChars = 0;
@@ -178,7 +222,7 @@ DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValu
 		{
 			nChars = sizeof(pValueMir);
 			ret = pRegKey->QueryStringValue(pValueName,pValueMir,&nChars);
-			if(strcpy_s(pValueMir,sizeof(pValueMir),"true") == 0)
+			if(strcmp(pValueMir,"true") == 0)
 			{
 				*(bool*)pValue = true;
 			}
@@ -191,10 +235,8 @@ DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValu
 
 	case StringKey:
 		{
-			nChars = 128;
-			char **pValueSec = (char **)pValue;
-			*pValueSec = (char *)malloc(128+1);
-			ret = pRegKey->QueryStringValue(pValueName,*pValueSec,&nChars);
+			nChars = Length;
+			ret = pRegKey->QueryStringValue(pValueName,(char *)pValue,&nChars);
 		}
 		break;
 
@@ -215,7 +257,6 @@ void COsnMirrorCopyXML::InitializeMembers()
 
 	GetSystemDisksInfo();
 	GetSystemVolumesInfo();
-	LOG(INFO) << "szf";
 	ReadConfigurationFile();
 
 	try
@@ -226,7 +267,6 @@ void COsnMirrorCopyXML::InitializeMembers()
 	{
 		LOG(ERROR) << "获取基本信息时出现异常：" << err.what();
 	}
-	LOG(INFO) << "szf1";
 }
 
 DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_t *pResName)
@@ -516,7 +556,6 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 	}
 }
 
-
 void COsnMirrorCopyXML::GetSystemDisksInfo()
 {
 	this->pDiskList ->Clear();
@@ -608,14 +647,17 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 	}
 }
 
-void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,char sign)
+void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,int DesLength,char sign)
 {
 	int j=0;
-	for(;*(pSou+j)!=sign && *(pSou+j)!='\0';j++)
+	for(;*(pSou+j)!=sign && *(pSou+j)!='\0' && j<DesLength;j++)
 	{
 		*(pDes + j) = *(pSou + j);
 	}
-	*(pDes + j) = '\0';
+	if(j == DesLength)
+		*(pDes + j - 1) = '\0';
+	else
+		*(pDes + j) = '\0';
 }
 
 void COsnMirrorCopyXML::ReadConfigurationFile()
@@ -655,29 +697,29 @@ void COsnMirrorCopyXML::ReadConfigurationFile()
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 				else if(i == 3)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(isCluster,pDes,10);
 				}
 				else if(i == 4)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					clusterResourceName->assign(TempW);
 				}
@@ -705,29 +747,29 @@ void COsnMirrorCopyXML::ReadConfigurationFile()
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 				else if(i == 3)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(isCluster,pDes,10);
 				}
 				else if(i == 4)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					clusterResourceName->assign(TempW);
 				}
@@ -866,29 +908,29 @@ wstring* COsnMirrorCopyXML::GetClusterResourceName(wstring *srcguid,wstring *dst
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 				else if(i == 3)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(isCluster,pDes,10);
 				}
 				else if( i == 4)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					ResourceName->assign(TempW);
 				}
@@ -925,29 +967,29 @@ wstring* COsnMirrorCopyXML::GetClusterResourceName(wstring *srcguid,wstring *dst
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW); //UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 				else if(i == 3)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(isCluster,pDes,10);
 				}
 				else if(i == 4)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					ResourceName->assign(TempW);
 				}
@@ -1008,29 +1050,29 @@ DWORD COsnMirrorCopyXML::GetIsClusterByGUID(wstring *srcguid,wstring *dstguid)
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 				else if(i == 3)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(isCluster,pDes,10);
 				}
 				else if(i == 4)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					ResourceName->assign(TempW);
 				}
@@ -1067,29 +1109,29 @@ DWORD COsnMirrorCopyXML::GetIsClusterByGUID(wstring *srcguid,wstring *dstguid)
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW); //UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);//UInt32::Parse(s,System::Globalization::NumberStyles::HexNumber);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 				else if(i == 3)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(isCluster,pDes,10);
 				}
 				else if(i == 4)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					ResourceName->assign(TempW);
 				}
@@ -1150,19 +1192,19 @@ DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid)
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 
@@ -1195,19 +1237,19 @@ DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid)
 			{
 				if(i == 0)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					SrcGuid->assign(TempW);
 				}
 				else if(i == 1)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					CharToWchar(pDes,TempW,_countof(TempW));
 					DesGuid->assign(TempW);
 				}
 				else if(i == 2)
 				{
-					MoveNext(pSou,pDes,';');
+					MoveNext(pSou,pDes,sizeof(pDes),';');
 					_itoa_s(uiEIMMode,pDes,10);
 				}
 
@@ -1730,16 +1772,16 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 
 		char DiskGuidC[64];
 		WcharToChar(pVolumeInfo->m_DiskGUID->c_str(),DiskGuidC,sizeof(DiskGuidC));
-		m_pTempXML->AddXMLVolElement("DiskList","Partition",DiskGuidC);
+		m_pTempXML->AddXMLVolElement("Disk","Partition",DiskGuidC);
 
 		WcharToChar((wchar_t*)pVolumeInfo->m_Protected.c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("Partition","IsProtected",temp);
 
-		sizeTemp = pVolumeInfo->m_VolumeSize /2/1024;
+		sizeTemp = pVolumeInfo->m_VolumeSize *512;
 		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("Partition","Size",temp);
 
-		sizeTemp = pVolumeInfo->m_UsedSpace /2/1024;
+		sizeTemp = pVolumeInfo->m_UsedSpace *512;
 		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("Partition","Used",temp);
 
@@ -1748,6 +1790,9 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 
 		WcharToChar((wchar_t*)pVolumeInfo->m_VolumeLable->c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("Partition","name",temp);
+
+		_itoa_s(i,temp,sizeof(temp),10);
+		m_pTempXML->AddXMLAttribute("Partition","Index",temp);
 
 		_itoa_s(pVolumeInfo->m_FileSys,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("Partition","FS",temp);
@@ -1764,22 +1809,24 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 
 void COsnMirrorCopyXML::RefreshDiskListXML()
 {
+	m_pTempXML->AddXMLElement("Client","DiskList");
+
 	for( int i=0;i<this->pDiskList->GetLength();i++)
 	{
 		char temp[128];
 		unsigned __int64 sizeTemp = 0;
 		CDiskInfo *pDiskInfo = (CDiskInfo *)(this->pDiskList->GetItem(i));
 
-		m_pTempXML->AddXMLElement("Client","DiskList");
+		m_pTempXML->AddXMLElement("DiskList","Disk");
 
 		WcharToChar((wchar_t*)pDiskInfo->m_Protected.c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("DiskList","IsProtected",temp);
 
-		sizeTemp = pDiskInfo->m_DiskSize /2/1024;
+		sizeTemp = pDiskInfo->m_DiskSize *512;
 		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("DiskList","Size",temp);
 
-		sizeTemp = pDiskInfo->m_UsedSpace /2/1024;
+		sizeTemp = pDiskInfo->m_UsedSpace *512;
 		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("DiskList","Used",temp);
 

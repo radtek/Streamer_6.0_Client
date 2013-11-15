@@ -18,12 +18,14 @@ public:
 	CMirrorInfoList *pDiskMirrorList;
 	CVolumeInfoList *pVolumeList;
 	CDiskInfoList   *pDiskList;
-	wstring         *ImagePath;  //delete
-	string          *ImagePathString;//delete
 
-	char            *m_ClientID;
+	char            *pFilePath;
+	char            *pFileMoudlePath;
+	wstring         *ImagePath;  //delete
+
+	char            m_ClientID[64];
+	char            m_ServerID[64];
 	char            *m_ServerIP;
-	char            *m_ServerID;
 	char            *m_TargetIqn;
 	char            *m_TargetIPs;
 	char            *m_InitiatorIPs;
@@ -46,7 +48,7 @@ public:
 	void COsnMirrorCopyXML::RefreshClientXML();
 	void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo();
 	void COsnMirrorCopyXML::GetDiskCopyMirrorInfo();
-	void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,char sign);
+	void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,int DesLength,char sign);
 	void COsnMirrorCopyXML::ReadConfigurationFile();
 	void COsnMirrorCopyXML::WriteConfigurationFile();
 	void COsnMirrorCopyXML::GetSystemMirrorInfo();
@@ -58,8 +60,9 @@ public:
 	DWORD COsnMirrorCopyXML::QueryiSCSIChannel();
 	DWORD COsnMirrorCopyXML::GetIsClusterByGUID(wstring *srcguid,wstring *dstguid);
 	DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid);
-	DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign);
+	DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValue,int Length,RegKey sign);
 	DWORD COsnMirrorCopyXML::SetRegKey(char *pKeyName,char *pValueName,void *pValue,RegKey sign);
+	DWORD COsnMirrorCopyXML::DelRegKey(char *pKeyName,char *pValueName);
 	DWORD COsnMirrorCopyXML::QueryClientID();
 	DWORD COsnMirrorCopyXML::CreateClientID();
 	DWORD COsnMirrorCopyXML::OSNInitWMI(IWbemServices **m_pSvc,IWbemLocator **m_pLoc,wchar_t *pResName);
