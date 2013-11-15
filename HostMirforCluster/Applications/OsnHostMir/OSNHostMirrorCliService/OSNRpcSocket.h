@@ -44,10 +44,6 @@ public:
 
 	void OSNRpcHandleBind(SOCKET s,const sockaddr *name,int nameLen);
 
-	bool OSNRpcReceiveMsg(SOCKADDR_IN	&outSin, 
-							char		*inMsg,
-							int			inMsgLen,
-							SOCKET *ConnectSocket);
 	bool OSNRpcSendMsg(SOCKADDR_IN	inSin, 
 						char*		inMsg, 
 						int			inMsgLen,
@@ -71,7 +67,6 @@ private:
 
 	DWORD	m_unPort;		//socket port of OSN Rpc service/client
 	DWORD	m_nError;		//standard WIN Socket error code
-	
 
 protected:
 

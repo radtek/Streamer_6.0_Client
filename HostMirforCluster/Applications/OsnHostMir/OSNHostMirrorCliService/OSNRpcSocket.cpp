@@ -199,58 +199,6 @@ bool COSNRpcSocket::OSNRpcSendMsg(SOCKADDR_IN	inSin,
 	return true;
 }
 
-
-
-//recieve the message from the remote socket and the remote socket IP address/port keeps in outSin
-bool COSNRpcSocket::OSNRpcReceiveMsg(SOCKADDR_IN	&outSin,
-			 							char		*inMsg,
-										int			inMsgLen,
-									    SOCKET  *ConnectSocket)
-{
-	
-	//clean the message buffer
-	ZeroMemory(inMsg, inMsgLen);
-
-	int		nSinLen	= sizeof(outSin);
-/*	m_nError	= recvfrom(m_socket, 
-							inMsg, 
-							inMsgLen, 
-							0, 
-							(struct sockaddr*) &outSin, 
-							(int *) &nSinLen); */
-	*ConnectSocket=accept(m_socket,(struct sockaddr*) &outSin,(int *) &nSinLen);
-	if(*ConnectSocket==INVALID_SOCKET)
-	{
-		OSNRpcSetLastError(WSAGetLastError());
-		pOSNService->LogMessage("accept socket failed ;error =",WSAGetLastError());
-		return false;
-	}	
-	timeval overtime;
-	overtime.tv_sec=10;
-	overtime.tv_usec=0;
-    int Rresult=setsockopt(*ConnectSocket,SOL_SOCKET,SO_RCVTIMEO,(char*)&overtime,sizeof(timeval));
-	int Sresult=setsockopt(*ConnectSocket,SOL_SOCKET,SO_SNDTIMEO,(char*)&overtime,sizeof(timeval));
-	if(Sresult||Rresult)
-	{
-		pOSNService->LogMessage("set soket option error=",WSAGetLastError());
-		shutdown(*ConnectSocket,SD_BOTH);
-		closesocket(*ConnectSocket);
-		return false;
-	}
-    m_nError=recv(*ConnectSocket,inMsg,inMsgLen,0);
-    if (m_nError == SOCKET_ERROR)					//error return
-	{
-		OSNRpcSetLastError(WSAGetLastError());
-		shutdown(*ConnectSocket,SD_BOTH);
-		closesocket(*ConnectSocket);
-		return false;
-	}
-	return true;
-}
-
-
-
-
 //Get the host name then call OSNRpcGetSocketAddrByName to get SOCKADDR_IN
 bool COSNRpcSocket::OSNRpcGetLocalSockAddr(SOCKADDR_IN &outSin)
 {

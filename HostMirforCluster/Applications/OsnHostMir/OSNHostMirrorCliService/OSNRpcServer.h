@@ -22,22 +22,21 @@ public:
 	bool OSNRpcCmdPing();
 
 
-	bool OSNRpcProcessRequest(SOCKADDR_IN &outSockAddr,SOCKET ConnectSocket);
+	bool OSNRpcProcessRequest(SOCKADDR_IN &outSockAddr,SOCKET &ConnectSocket,char *pMsg);
 
 	void				StopListenThread();
 	DWORD				StartListenThread();
 	DWORD				StartSocketThread();
 	static DWORD		WINAPI OSNRpcListenThread(void *pData);
+	static DWORD		WINAPI OSNRpcMsgThread(void *pData);
 
 	inline void			SetOSNRpcState(OSNRPC_STATE inState) { m_nRPCState = inState;}
+	inline void			SetOSNRpcMsgState(OSNRPC_STATE inState) { m_nRPCMsgState = inState;}
+
 	inline OSNRPC_STATE	OSNRpcState() { return m_nRPCState; }
-	inline	bool		OSNRpcServerReceiveMsg(SOCKADDR_IN	&outSin,SOCKET *ConnectSocket)
-						{
-							return OSNRpcReceiveMsg(outSin,
-													m_sRecvMsg,
-													OSNRPC_HCMAX_MSG_LEN,
-													ConnectSocket);
-						}
+	inline OSNRPC_STATE	OSNRpcMsgState() { return m_nRPCMsgState; }
+
+	bool		OSNRpcServerReceiveMsg(SOCKADDR_IN	&outSin,SOCKET *ConnectSocket);
 
 	//stream
 	bool OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader);
@@ -60,17 +59,35 @@ private:
 	char			m_sRecvMsg[OSNRPC_HCMAX_MSG_LEN];	//message buffer to recieve/send from/to the remote
 	char            msg[256];  
 	OSNRPC_STATE	m_nRPCState;				//stop OSN Rpc service thread flag
-	
+	OSNRPC_STATE	m_nRPCMsgState;
+
+	HANDLE			m_handleMsg;
 	HANDLE			m_handleThread;				//thread handle for OSN Rpc service thread
 	HANDLE			m_startSocketThreadHandle;	//thread handle for start socket
 	
 	DWORD			m_dwThreadID;				//thread ID for OSN Rpc service thread
+	DWORD			m_dwMsgThreadID;
 	DWORD			m_dwSocketThreadID;
 
 	//stream
 	COsnMirrorCopyXML *m_pCopyXML;
+	CQueue            *m_pMsgQueue;
+	HANDLE            m_hMutex;
+	DWORD             m_nError;          
 };
 
+class COSNMsgAccept
+{
+public:
+	char          *pMsg;
+	SOCKET	      m_SocketAccept;
+	SOCKADDR_IN   m_SocketAddr;
 
+	COSNMsgAccept()
+	{
+		pMsg           = NULL;
+		m_SocketAccept = INVALID_SOCKET;
+	}
+};
 #endif // _OSNRPCSERVER_H_
 

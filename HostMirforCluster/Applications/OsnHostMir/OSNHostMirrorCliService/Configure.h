@@ -9,7 +9,6 @@ class CQueue
 	CQueue		*m_pPrevious;
 	void		*m_pQItem;
 
-
 public:
 
 	CQueue()
@@ -21,11 +20,9 @@ public:
 
 	~CQueue(){};
 
-
 	bool	IsEmpty() { return m_pNext ==  NULL; }
 
 	void *	GetItem() { return m_pQItem; }
-
 
 	void	InsertQTail(void *pQItem)
 	{
@@ -68,8 +65,6 @@ public:
 
 		delete this;
 	}
-
-
 };
 
 #define HCMAXIMUM_SOCKET_LISTENING       128

@@ -32,10 +32,17 @@ extern	COSNService			*pOSNService;
 COSNRpcServer::COSNRpcServer() : COSNRpcSocket()
 {
 	m_nRPCState			 = OSNRPC_STOPPED;
+	m_nRPCMsgState		 = OSNRPC_STOPPED;
 	m_handleThread		 = INVALID_HANDLE_VALUE;
+	m_handleMsg          = INVALID_HANDLE_VALUE;
 	m_dwThreadID		 = 0;
+	m_dwMsgThreadID      = 0;
 	m_dwSocketThreadID   = 0;
-	m_startSocketThreadHandle = INVALID_HANDLE_VALUE;
+	m_nError             = 0;
+	m_startSocketThreadHandle = INVALID_HANDLE_VALUE;                 
+	m_pCopyXML           = NULL;
+	m_pMsgQueue          = NULL;
+	m_hMutex             = NULL;
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
 
@@ -44,17 +51,61 @@ COSNRpcServer::COSNRpcServer() : COSNRpcSocket()
 COSNRpcServer::COSNRpcServer(UINT inPort) : COSNRpcSocket(inPort, true)
 {
 	m_nRPCState			 = OSNRPC_STOPPED;
+	m_nRPCMsgState		 = OSNRPC_STOPPED;
 	m_handleThread		 = INVALID_HANDLE_VALUE;
+	m_handleMsg          = INVALID_HANDLE_VALUE;
 	m_dwThreadID		 = 0;
+	m_dwMsgThreadID      = 0;
 	m_dwSocketThreadID   = 0;
+	m_nError             = 0;
 	m_startSocketThreadHandle = INVALID_HANDLE_VALUE;
+	m_pCopyXML           = NULL;
+	m_pMsgQueue          = NULL;
+	m_hMutex             = NULL;
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
 }
 
 COSNRpcServer::~COSNRpcServer()
 {
-	delete(m_pCopyXML);
+	if(m_pCopyXML != NULL)
+	{
+		delete(m_pCopyXML);
+	}
+
+	if(m_pMsgQueue != NULL)
+	{
+		while(m_pMsgQueue->Next())
+		{
+			WaitForSingleObject(m_hMutex,INFINITE);
+			COSNMsgAccept *pObject = (COSNMsgAccept *)m_pMsgQueue->Next()->DeQueueHead();
+			ReleaseMutex(m_hMutex);
+
+			if(pObject->m_SocketAccept != INVALID_SOCKET)
+			{
+				shutdown(pObject->m_SocketAccept,SD_BOTH);
+				closesocket(pObject->m_SocketAccept);
+			}
+			if(pObject->pMsg == NULL)
+			{
+				delete [] pObject->pMsg;
+			}
+			delete(pObject);
+		}
+		delete(m_pMsgQueue);
+	}
+
+	if(m_hMutex != NULL)
+	{
+		CloseHandle(m_hMutex);
+	}
+
+	if(m_handleMsg != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(m_handleMsg);
+		m_handleMsg = INVALID_HANDLE_VALUE;
+	}
+
 	if (m_handleThread != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(m_handleThread);
@@ -68,11 +119,11 @@ COSNRpcServer::~COSNRpcServer()
 	}
 }
 
-
-
-//OSN Rpc service thread function
-DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)	
+DWORD WINAPI COSNRpcServer::OSNRpcMsgThread(void *pData)	
 {
+	LARGE_INTEGER m_liPerfFreq={0};
+	QueryPerformanceFrequency(&m_liPerfFreq); //获取每秒多少CPU Performance Tick
+
 	//CoInitialize(NULL);
 	HRESULT hres;
 	hres =  CoInitializeEx(0, COINIT_APARTMENTTHREADED);
@@ -101,6 +152,132 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 
 	COSNRpcServer *pOSNRpcServer = (COSNRpcServer *) pData;
 
+	pOSNService->IncrementThreadCount();
+
+	pOSNRpcServer->m_pCopyXML           = new COsnMirrorCopyXML();
+
+	LARGE_INTEGER m_liPerfFront={0};
+	LARGE_INTEGER m_liPerfNext={0};
+	QueryPerformanceCounter(&m_liPerfFront);
+
+	while (pOSNRpcServer->OSNRpcMsgState() == OSNRPC_RUNNING)
+	{
+		//fresh Client infomation 60per.
+		QueryPerformanceCounter(&m_liPerfNext);
+		if((((m_liPerfNext.QuadPart - m_liPerfFront.QuadPart) * 1000)/m_liPerfFreq.QuadPart) > 60000)
+		{
+			pOSNRpcServer->m_pCopyXML->InitializeMembers();
+			m_liPerfFront.QuadPart = m_liPerfNext.QuadPart;
+		}
+
+		if(pOSNRpcServer->m_pMsgQueue->Next() == NULL)
+		{
+			Sleep(200);
+			continue;
+		}
+
+		COSNMsgAccept *pCOSNMsgAccept = NULL;
+		WaitForSingleObject(pOSNRpcServer->m_hMutex,INFINITE);
+		pCOSNMsgAccept = (COSNMsgAccept *)pOSNRpcServer->m_pMsgQueue->DeQueueHead();
+		ReleaseMutex(pOSNRpcServer->m_hMutex);
+		if(pCOSNMsgAccept == NULL)
+		{
+			Sleep(200);
+			continue;
+		}
+
+		//process the income command
+		pOSNRpcServer->OSNRpcProcessRequest(pCOSNMsgAccept->m_SocketAddr,pCOSNMsgAccept->m_SocketAccept,pCOSNMsgAccept->pMsg);
+
+		shutdown(pCOSNMsgAccept->m_SocketAccept,SD_BOTH);
+		closesocket(pCOSNMsgAccept->m_SocketAccept);
+		delete [] pCOSNMsgAccept->pMsg;
+		delete pCOSNMsgAccept;
+	}
+
+	pOSNService->DecrementThreadCount();
+	pOSNService->LogMessage("INFO: OSN HostMirrorClient Msg thread stopped.");
+
+	CoUninitialize();
+	pOSNRpcServer->SetOSNRpcMsgState(OSNRPC_STOPPED);
+
+	return 0;
+}
+
+bool COSNRpcServer::OSNRpcServerReceiveMsg(SOCKADDR_IN	&outSin,SOCKET *ConnectSocket)
+{
+	int		nSinLen	= sizeof(outSin);
+	*ConnectSocket=accept(m_socket,(struct sockaddr*) &outSin,(int *) &nSinLen);
+	if(*ConnectSocket==INVALID_SOCKET)
+	{
+		OSNRpcSetLastError(WSAGetLastError());
+		pOSNService->LogMessage("accept socket failed ;error =",WSAGetLastError());
+		return false;
+	}	
+	timeval overtime;
+	overtime.tv_sec=10;
+	overtime.tv_usec=0;
+	int Rresult=setsockopt(*ConnectSocket,SOL_SOCKET,SO_RCVTIMEO,(char*)&overtime,sizeof(timeval));
+	int Sresult=setsockopt(*ConnectSocket,SOL_SOCKET,SO_SNDTIMEO,(char*)&overtime,sizeof(timeval));
+	if(Sresult||Rresult)
+	{
+		pOSNService->LogMessage("set soket option error=",WSAGetLastError());
+		shutdown(*ConnectSocket,SD_BOTH);
+		closesocket(*ConnectSocket);
+		return false;
+	}
+
+	COSNMsgAccept *pCOSNMsgAccept = NULL;
+	char *inMsg = NULL;
+	try
+	{
+		pCOSNMsgAccept = new COSNMsgAccept();
+		inMsg = new char[OSNRPC_HCMAX_MSG_LEN];
+		if(inMsg == NULL)
+		{
+			shutdown(*ConnectSocket,SD_BOTH);
+			closesocket(*ConnectSocket);
+			return false;
+		}
+		ZeroMemory(inMsg, OSNRPC_HCMAX_MSG_LEN);
+	}
+	catch(exception err)
+	{
+		if(pCOSNMsgAccept != NULL)
+		{
+			delete(pCOSNMsgAccept);
+		}
+		printf("new memery error:%s",err.what());
+		shutdown(*ConnectSocket,SD_BOTH);
+		closesocket(*ConnectSocket);
+		return false;
+	}
+
+	m_nError=recv(*ConnectSocket,inMsg,OSNRPC_HCMAX_MSG_LEN,0);
+	if (m_nError == SOCKET_ERROR)					//error return
+	{
+		OSNRpcSetLastError(WSAGetLastError());
+		shutdown(*ConnectSocket,SD_BOTH);
+		closesocket(*ConnectSocket);
+		delete(inMsg);
+		return false;
+	}
+
+	pCOSNMsgAccept->pMsg = inMsg;
+	pCOSNMsgAccept->m_SocketAccept = *ConnectSocket;
+	pCOSNMsgAccept->m_SocketAddr   = outSin;
+
+	WaitForSingleObject(m_hMutex,INFINITE);
+	m_pMsgQueue->InsertQTail(pCOSNMsgAccept);
+	ReleaseMutex(m_hMutex);
+	return true;
+}
+
+//OSN Rpc service thread function
+DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)	
+{
+	COSNRpcServer *pOSNRpcServer = (COSNRpcServer *) pData;
+
 	if (!pOSNRpcServer)
 	{
 		pOSNService->LogMessage("Invalid RpcServer");
@@ -117,7 +294,7 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 	SOCKADDR_IN	sinAccept;							//receive the income address information
 	SOCKET   sockConn;   
 	
-	pOSNRpcServer->m_pCopyXML           = new COsnMirrorCopyXML();
+	pOSNRpcServer->m_pMsgQueue          = new CQueue();
 	while (pOSNRpcServer->OSNRpcState() == OSNRPC_RUNNING)
 	{
 		if(!pOSNRpcServer->m_startSocketSuccess)
@@ -129,8 +306,7 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 		//recieve message failed, go to the next loop, continue waiting
 		if (pOSNRpcServer->OSNRpcServerReceiveMsg(sinAccept,&sockConn))
 		{
-			//process the income command
-			pOSNRpcServer->OSNRpcProcessRequest(sinAccept,sockConn);
+			
 		}
 
 		//if it is stopping OSN Rpc service command, break the loop
@@ -184,23 +360,25 @@ DWORD COSNRpcServer::StartSocketThread()
 //start OSN Rpc service, set socket thread status flag
 DWORD COSNRpcServer::StartListenThread()
 {
-
-	//initialize socket
-	//WSADATA	wdata;
-	//if(WSAStartup(MAKEWORD(2,2), &wdata))
-	//		return WSAGetLastError();
-
-
-	//start the socket
-	//if (!OSNRpcStartSocket(true))
-	//	return OSNRpcGetLastError();
 		m_handleThread = CreateThread(NULL,
 			0,
 			OSNRpcListenThread,
 			(void *) this,
-
 			0,
 			&m_dwThreadID);
+
+		m_handleMsg = CreateThread(NULL,
+			0,
+			OSNRpcMsgThread,
+			(void *) this,
+			0,
+			&m_dwMsgThreadID);
+
+		if(m_handleMsg == INVALID_HANDLE_VALUE)			//error return 
+		{
+			SetOSNRpcMsgState(OSNRPC_STOPPED);
+			return GetLastError();
+		}
 
 		if(m_handleThread == INVALID_HANDLE_VALUE)			//error return 
 		{
@@ -212,6 +390,7 @@ DWORD COSNRpcServer::StartListenThread()
 		}
 
 		SetOSNRpcState(OSNRPC_RUNNING);
+		SetOSNRpcMsgState(OSNRPC_RUNNING);
 		return ERROR_SUCCESS;
 
 }
@@ -755,7 +934,7 @@ DWORD COSNRpcServer::OSNRpcGetClientInfo()
 {
 	LOG(INFO) << "OSNRpcGetClientInfo start.";
 
-	m_pCopyXML->InitializeMembers();
+	//m_pCopyXML->InitializeMembers();
 
 	m_pCopyXML->RefreshClientXML();
 	m_pCopyXML->RefreshDiskListXML();
@@ -1010,11 +1189,11 @@ inline void  COSNRpcServer::OSNRpcRetMsgHeader(PHC_MESSAGE_HEADER pMsgHeader,uns
 }
 
 //Process the income command
-bool COSNRpcServer::OSNRpcProcessRequest(SOCKADDR_IN &outSockAddr,SOCKET ConnectSocket)
+bool COSNRpcServer::OSNRpcProcessRequest(SOCKADDR_IN &outSockAddr,SOCKET &ConnectSocket,char *pMsg)
 {
 
-	PHC_MESSAGE_HEADER	pMsgHeader = (PHC_MESSAGE_HEADER) m_sRecvMsg;
-	char			*pParaBuffer = &m_sRecvMsg[OSNRPC_HCMSGHEAD_LEN];
+	PHC_MESSAGE_HEADER	pMsgHeader = (PHC_MESSAGE_HEADER) pMsg;
+	char			*pParaBuffer = &pMsg[OSNRPC_HCMSGHEAD_LEN];
 
 
 	//check the command ID. if it is not xml command, go to other
@@ -1024,13 +1203,11 @@ bool COSNRpcServer::OSNRpcProcessRequest(SOCKADDR_IN &outSockAddr,SOCKET Connect
 
 		//send back the response
 		//pMsgHeader->flags	= OSNRPC_HBCMD_RESPONSE;
-		OSNRpcSendMsg(outSockAddr, (char *) m_sRecvMsg, OSNRPC_HCMSGHEAD_LEN + pMsgHeader->dataLength,ConnectSocket);
-		shutdown(ConnectSocket,SD_BOTH);
-		closesocket(ConnectSocket);
+		OSNRpcSendMsg(outSockAddr, (char *) pMsg, OSNRPC_HCMSGHEAD_LEN + pMsgHeader->dataLength,ConnectSocket);
 	//}
 	//else	//analyze the response
 	//{
-		pOSNService->LogMessage("failed");
+		//pOSNService->LogMessage("failed");
 		/*if(pMsgHeader->retStatus != CMD_HBSTATUS_SUCCESS)
 		{
 			char msg[256];
