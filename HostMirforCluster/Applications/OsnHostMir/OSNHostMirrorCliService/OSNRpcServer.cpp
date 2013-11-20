@@ -36,12 +36,15 @@ COSNRpcServer::COSNRpcServer() : COSNRpcSocket()
 	m_handleMsg          = INVALID_HANDLE_VALUE;
 	m_dwThreadID		 = 0;
 	m_dwMsgThreadID      = 0;
+	m_dwSendThreadID     = 0;
 	m_dwSocketThreadID   = 0;
 	m_nError             = 0;
 	m_startSocketThreadHandle = INVALID_HANDLE_VALUE;                 
 	m_pCopyXML           = NULL;
 	m_pMsgQueue          = NULL;
 	m_hMutex             = NULL;
+	m_hMutexFreshClient  = NULL;
+	m_HCSendThreadHandle = INVALID_HANDLE_VALUE;
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
 
@@ -55,12 +58,15 @@ COSNRpcServer::COSNRpcServer(UINT inPort) : COSNRpcSocket(inPort, true)
 	m_handleMsg          = INVALID_HANDLE_VALUE;
 	m_dwThreadID		 = 0;
 	m_dwMsgThreadID      = 0;
+	m_dwSendThreadID     = 0;
 	m_dwSocketThreadID   = 0;
 	m_nError             = 0;
 	m_startSocketThreadHandle = INVALID_HANDLE_VALUE;
+	m_HCSendThreadHandle = INVALID_HANDLE_VALUE;
 	m_pCopyXML           = NULL;
 	m_pMsgQueue          = NULL;
 	m_hMutex             = NULL;
+	m_hMutexFreshClient  = NULL;
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
 }
@@ -99,6 +105,11 @@ COSNRpcServer::~COSNRpcServer()
 		CloseHandle(m_hMutex);
 	}
 
+	if(m_hMutexFreshClient != NULL)
+	{
+		CloseHandle(m_hMutexFreshClient);
+	}
+
 	if(m_handleMsg != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(m_handleMsg);
@@ -109,6 +120,12 @@ COSNRpcServer::~COSNRpcServer()
 	{
 		CloseHandle(m_handleThread);
 		m_handleThread = INVALID_HANDLE_VALUE;
+	}
+
+	if(m_HCSendThreadHandle != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(m_HCSendThreadHandle);
+		m_HCSendThreadHandle = INVALID_HANDLE_VALUE;
 	}
 
 	if(m_startSocketThreadHandle !=INVALID_HANDLE_VALUE)
@@ -165,7 +182,10 @@ DWORD WINAPI COSNRpcServer::OSNRpcMsgThread(void *pData)
 		QueryPerformanceCounter(&m_liPerfNext);
 		if((((m_liPerfNext.QuadPart - m_liPerfFront.QuadPart) * 1000)/m_liPerfFreq.QuadPart) > 60000)
 		{
+			WaitForSingleObject(pOSNRpcServer->m_hMutexFreshClient,INFINITE);
 			pOSNRpcServer->m_pCopyXML->InitializeMembers();
+			ReleaseMutex(pOSNRpcServer->m_hMutexFreshClient);
+
 			m_liPerfFront.QuadPart = m_liPerfNext.QuadPart;
 		}
 
@@ -205,6 +225,8 @@ DWORD WINAPI COSNRpcServer::OSNRpcMsgThread(void *pData)
 
 bool COSNRpcServer::OSNRpcServerReceiveMsg(SOCKADDR_IN	&outSin,SOCKET *ConnectSocket)
 {
+	PHC_MESSAGE_HEADER pHeader;
+
 	int		nSinLen	= sizeof(outSin);
 	*ConnectSocket=accept(m_socket,(struct sockaddr*) &outSin,(int *) &nSinLen);
 	if(*ConnectSocket==INVALID_SOCKET)
@@ -252,7 +274,7 @@ bool COSNRpcServer::OSNRpcServerReceiveMsg(SOCKADDR_IN	&outSin,SOCKET *ConnectSo
 		return false;
 	}
 
-	m_nError=recv(*ConnectSocket,inMsg,OSNRPC_HCMAX_MSG_LEN,0);
+	m_nError=recv(*ConnectSocket,inMsg,sizeof(HC_MESSAGE_HEADER),0);
 	if (m_nError == SOCKET_ERROR)					//error return
 	{
 		OSNRpcSetLastError(WSAGetLastError());
@@ -260,6 +282,19 @@ bool COSNRpcServer::OSNRpcServerReceiveMsg(SOCKADDR_IN	&outSin,SOCKET *ConnectSo
 		closesocket(*ConnectSocket);
 		delete(inMsg);
 		return false;
+	}
+	pHeader = (PHC_MESSAGE_HEADER)inMsg;
+	if(pHeader->dataLength != 0)
+	{
+		m_nError=recv(*ConnectSocket,(char *)((DWORD)pHeader+OSNRPC_HCMSGHEAD_LEN),pHeader->dataLength,0);
+		if (m_nError == SOCKET_ERROR)					//error return
+		{
+			OSNRpcSetLastError(WSAGetLastError());
+			shutdown(*ConnectSocket,SD_BOTH);
+			closesocket(*ConnectSocket);
+			delete(inMsg);
+			return false;
+		}
 	}
 
 	pCOSNMsgAccept->pMsg = inMsg;
@@ -355,43 +390,248 @@ DWORD COSNRpcServer::StartSocketThread()
 	return ERROR_SUCCESS;
 }
 
+DWORD COSNRpcServer::OSNRpcHeartBeat(char *pBuffer,unsigned int Length)
+{
+	char pIPAddress[21];
+	PHC_MESSAGE_HEADER pHeader;
+	m_pCopyXML->MoveNext(m_pCopyXML->m_ServerIP,pIPAddress,sizeof(pIPAddress),' ');
+	WSADATA wsa;
+	
+	if(WSAStartup(MAKEWORD(2,2),&wsa)!=0)
+	{
+		LOG(ERROR)<<"HeartBeat WSAStartup error.";
+		return -1;
+	}
+	
+	SOCKET sock;
+	if((sock=socket(AF_INET,SOCK_STREAM,0))==INVALID_SOCKET){
+		LOG(ERROR)<<"HeartBeat socket error.";
+		WSACleanup();
+		return -1;
+	}
+	struct sockaddr_in serverAddress;
+	memset(&serverAddress,0,sizeof(sockaddr_in));
+	serverAddress.sin_family=AF_INET;
+	serverAddress.sin_addr.S_un.S_addr = inet_addr(pIPAddress);
+	serverAddress.sin_port = htons(OSN_SERVER_LISTENING);
+	
+	connect(sock,(sockaddr*)&serverAddress,sizeof(serverAddress));
+	if(WSAGetLastError() !=0)
+	{
+		LOG(ERROR)<<"HeartBeat connect error:"<<WSAGetLastError();
+		closesocket(sock);
+		WSACleanup();
+		return -1;
+	}
 
-//start OSN Rpc service, set socket thread status flag
+	int a = send(sock,pBuffer,Length,0);
+	if(WSAGetLastError() != 0)
+	{
+		LOG(ERROR)<< "send() error:" << WSAGetLastError();
+		closesocket(sock);
+		WSACleanup();
+		return -1;
+	}
+
+	memset(pBuffer,0,Length);
+
+	timeval overtime;
+	overtime.tv_sec=5;
+	overtime.tv_usec=0;
+	setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(char *)&overtime,sizeof(overtime));
+	if(WSAGetLastError() != 0)
+	{
+		LOG(ERROR)<< "setsockopt() error:" <<WSAGetLastError();
+		closesocket(sock);
+		WSACleanup();
+		return -1;
+	}
+	int bytes = recv(sock,pBuffer,sizeof(HC_MESSAGE_HEADER),0);
+
+	pHeader = (PHC_MESSAGE_HEADER)pBuffer;
+
+	setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(char *)&overtime,sizeof(overtime));
+	if(WSAGetLastError() != 0)
+	{
+		LOG(ERROR)<< "setsockopt() error:" <<WSAGetLastError();
+		closesocket(sock);
+		WSACleanup();
+		return -1;
+	}
+
+	if(pHeader->dataLength != 0)
+	{
+		bytes = recv(sock,(char*)((DWORD)pHeader + OSNRPC_HCMSGHEAD_LEN),pHeader->dataLength,0);
+		if(WSAGetLastError() != 0)
+		{
+			int a = WSAGetLastError();
+			shutdown(sock,SD_BOTH);
+			closesocket(sock);
+			WSACleanup();
+			LOG(ERROR)<<"recv() error:" << WSAGetLastError();
+			return -1;
+		}
+	}
+	
+	PHC_MESSAGE_HEADER	pMsgHeader = (PHC_MESSAGE_HEADER)pBuffer;
+	if(pMsgHeader->cmd == ST_OP_CLIENT_HEARTBEAT)
+	{
+		char *pXMLText = (char*)((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+		DWORD dw = OSNRpcGetServiceInfoSend((DWORD)pXMLText);
+	}
+		
+	shutdown(sock,SD_BOTH);
+	closesocket(sock);
+	WSACleanup();
+	return 0;
+}
+
+DWORD WINAPI COSNRpcServer:: OSNHCSendThread(void *pData)
+{
+	//CoInitialize(NULL);
+	HRESULT hres;
+	hres =  CoInitializeEx(0, COINIT_APARTMENTTHREADED);
+	if (FAILED(hres))
+	{
+		LOG(INFO) << "CoInitializeEx error";
+		return EXIT_FAILURE;              // Program has failed.
+	}
+
+	COSNRpcServer *pOSNRpcServer = (COSNRpcServer *) pData;
+
+	char *pMsg = NULL;
+	pMsg = new char[OSNRPC_HCMAX_MSG_LEN];
+	
+	pOSNService->IncrementThreadCount();
+
+	while (pOSNRpcServer->OSNRpcSendState() == OSNRPC_RUNNING)
+	{
+		Sleep(5000);
+
+		memset(pMsg,0,OSNRPC_HCMAX_MSG_LEN);
+
+		PHC_MESSAGE_HEADER	pMsgHeader = (PHC_MESSAGE_HEADER)pMsg;
+		pMsgHeader->version = OSN_MSGHEAD_PROTVERSION_BASIC;
+		pMsgHeader->parseType = OSN_MSGHEAD_PARSE_XML;
+		pMsgHeader->rtnStatus = OSN_MSGHEAD_RTNSTATUS_SUCCESS;
+		pMsgHeader->flag = OSN_MSGHEAD_CMD_FLAGSYN_ASK ;
+		pMsgHeader->cmd = ST_OP_CLIENT_HEARTBEAT;
+		char *pXMLText = (char*)((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+
+		if(pOSNRpcServer->m_pCopyXML != NULL)
+		{
+			LOG(INFO) << "";
+
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->CreateXMLFile("Streamer");
+
+			if(pOSNRpcServer->m_pCopyXML->m_IsProtected == true)
+			{
+				WaitForSingleObject(pOSNRpcServer->m_hMutexFreshClient,INFINITE);
+				DWORD dw = pOSNRpcServer->OSNRpcGetClientInfo(pXMLTemp);
+				ReleaseMutex(pOSNRpcServer->m_hMutexFreshClient);
+
+				if(EXIT_SUCCESS == dw)
+				{
+
+					DWORD size = pXMLTemp->GetXMLText(pXMLText);
+					pMsgHeader->dataLength = size;
+
+					pOSNRpcServer->OSNRpcHeartBeat(pMsg,sizeof(HC_MESSAGE_HEADER)+size);
+				}
+				else
+				{
+					LOG(INFO) << "Heartbeat OSNRpcGetClientInfo failed!";
+				}
+			}
+			delete(pXMLTemp);
+		}
+		else
+			LOG(INFO) << "pOSNRpcServer->m_pCopyXML == NULL.";
+	}
+
+	if(pMsg != NULL)
+	{
+		delete [] pMsg;
+	}
+	CoUninitialize();
+	pOSNService->DecrementThreadCount();
+	pOSNRpcServer->SetOSNRpcSendState(OSNRPC_STOPPED);
+
+	pOSNService->LogMessage("INFO: HC Send thread stopped");
+	return 0;			//thread function return
+}
+
+DWORD COSNRpcServer::StartMsgThread()
+{
+	//HostMirror Client handle cmd thread
+	m_handleMsg = CreateThread(NULL,
+		0,
+		OSNRpcMsgThread,
+		(void *) this,
+		0,
+		&m_dwMsgThreadID);
+	if(m_handleMsg == INVALID_HANDLE_VALUE)			//error return 
+	{
+		SetOSNRpcMsgState(OSNRPC_STOPPED);
+		return GetLastError();
+	}
+	SetOSNRpcMsgState(OSNRPC_RUNNING);
+	return ERROR_SUCCESS;
+}
+
+DWORD COSNRpcServer::StartSendThread()
+{
+	//HostMirror Client beart thread
+	m_HCSendThreadHandle = CreateThread(NULL,
+		0,
+		OSNHCSendThread,
+		(void *) this,
+		0,
+		&m_dwSendThreadID);
+	if(m_HCSendThreadHandle == INVALID_HANDLE_VALUE)  //error return 
+	{
+		SetOSNRpcSendState(OSNRPC_STOPPED);
+		return GetLastError();
+	}
+	SetOSNRpcSendState(OSNRPC_RUNNING);
+	return ERROR_SUCCESS;
+}
+
 DWORD COSNRpcServer::StartListenThread()
 {
-		m_handleThread = CreateThread(NULL,
-			0,
-			OSNRpcListenThread,
-			(void *) this,
-			0,
-			&m_dwThreadID);
+	//HostMirror Client receive cmd thread
+	m_handleThread = CreateThread(NULL,
+		0,
+		OSNRpcListenThread,
+		(void *) this,
+		0,
+		&m_dwThreadID);
+	if(m_handleThread == INVALID_HANDLE_VALUE)			//error return 
+	{
+		OSNRpcStopSocket();
+		OSNRpcSocketCleanup();
 
-		m_handleMsg = CreateThread(NULL,
-			0,
-			OSNRpcMsgThread,
-			(void *) this,
-			0,
-			&m_dwMsgThreadID);
+		SetOSNRpcState(OSNRPC_STOPPED);
+		return GetLastError();
+	}
+	SetOSNRpcState(OSNRPC_RUNNING);
 
-		if(m_handleMsg == INVALID_HANDLE_VALUE)			//error return 
-		{
-			SetOSNRpcMsgState(OSNRPC_STOPPED);
-			return GetLastError();
-		}
+	return ERROR_SUCCESS;
+}
 
-		if(m_handleThread == INVALID_HANDLE_VALUE)			//error return 
-		{
-			OSNRpcStopSocket();
-			OSNRpcSocketCleanup();
+void COSNRpcServer::StopSendThread()
+{
+	SetOSNRpcSendState(OSNRPC_STOP);
+	CloseHandle(m_HCSendThreadHandle);
+	m_HCSendThreadHandle	= INVALID_HANDLE_VALUE;
+}
 
-			SetOSNRpcState(OSNRPC_STOPPED);
-			return GetLastError();
-		}
-
-		SetOSNRpcState(OSNRPC_RUNNING);
-		SetOSNRpcMsgState(OSNRPC_RUNNING);
-		return ERROR_SUCCESS;
-
+void COSNRpcServer::StopMsgThread()
+{
+	SetOSNRpcMsgState(OSNRPC_STOP);
+	CloseHandle(m_handleMsg);
+	m_handleMsg	= INVALID_HANDLE_VALUE;
 }
 
 void COSNRpcServer::StopListenThread()
@@ -404,9 +644,9 @@ void COSNRpcServer::StopListenThread()
 	OSNRpcSocketCleanup();
 
 	//clean up thead handle
+
 	CloseHandle(m_handleThread);
 	m_handleThread	= INVALID_HANDLE_VALUE;
-
 }
 
 DWORD COSNRpcServer::OSNRpcGetSysVersion(char *pSysVersion)
@@ -895,6 +1135,48 @@ DWORD COSNRpcServer::OSNRpcSetMirror(DWORD pXML)
 	return dw;
 }
 
+DWORD COSNRpcServer::OSNRpcGetServiceInfoSend(DWORD pXML)
+{
+	DWORD status;
+	char            m_ServerID[64];
+	char            m_ServerIP[256];
+	wchar_t pUnicode[256];
+	memset(pUnicode,0,256*sizeof(wchar_t));
+
+	LOG(INFO) << "OSNRpcGetServiceInfo start.";
+
+	COSNxml *pXMLTemp = new COSNxml();
+	
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","ID",m_ServerID,64);
+		if(strcmp(m_pCopyXML->m_ServerID,m_ServerID) != 0)
+		{
+			delete(pXMLTemp);
+			return EXIT_FAILURE;
+		}
+		//m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID",m_pCopyXML->m_ServerID,StringKey);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","IPs",m_ServerIP,bufsize);
+		if(strcmp(m_pCopyXML->m_ServerIP,m_ServerIP) != 0)
+		{
+			strcpy_s(m_pCopyXML->m_ServerIP,bufsize,m_ServerIP);
+			m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP",m_pCopyXML->m_ServerIP,StringKey);
+		}
+		
+		status = EXIT_SUCCESS;
+	}
+	else
+	{
+		status = EXIT_FAILURE;
+	}
+	
+	delete(pXMLTemp);
+	return status;
+}
+
 DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
 {
 	DWORD status;
@@ -908,9 +1190,6 @@ DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
 	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
 	{
 		pXMLTemp->LoadFile(pUnicode);
-
-		m_pCopyXML->m_IsProtected = true;
-		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_pCopyXML->m_IsProtected,BoolKey);
 
 		pXMLTemp->GetXMLNodeAttribute("Streamer/Server","ID",m_pCopyXML->m_ServerID,64);
 		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID",m_pCopyXML->m_ServerID,StringKey);
@@ -929,16 +1208,16 @@ DWORD COSNRpcServer::OSNRpcGetServiceInfo(DWORD pXML)
 	return status;
 }
 
-DWORD COSNRpcServer::OSNRpcGetClientInfo()
+DWORD COSNRpcServer::OSNRpcGetClientInfo(COSNxml *m_pTempXML)
 {
 	LOG(INFO) << "OSNRpcGetClientInfo start.";
 
 	//m_pCopyXML->InitializeMembers();
 
-	m_pCopyXML->RefreshClientXML();
-	m_pCopyXML->RefreshDiskListXML();
-	m_pCopyXML->RefreshVolumeListXML();
-	m_pCopyXML->RefreshChannelListXML();
+	m_pCopyXML->RefreshClientXML(m_pTempXML);
+	m_pCopyXML->RefreshDiskListXML(m_pTempXML);
+	m_pCopyXML->RefreshVolumeListXML(m_pTempXML);
+	m_pCopyXML->RefreshChannelListXML(m_pTempXML);
 
 	return EXIT_SUCCESS;
 }
@@ -953,8 +1232,6 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 	{
 	case ST_OP_SCAN_CLIENT:
 		{
-			//m_pCopyXML           = new COsnMirrorCopyXML();
-
 			LOG(INFO) << "ST_OP_SCAN_CLIENT CMD start.";
 
 			COSNxml *pXMLTemp = new COSNxml();
@@ -1001,16 +1278,19 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 		{
 			LOG(INFO) << "ST_OP_ADD_CLIENTS CMD start.";
 
-			m_pCopyXML->m_pTempXML = new COSNxml();
-			m_pCopyXML->m_pTempXML->CreateXMLFile("Streamer");
+			COSNxml *m_pTempXML = new COSNxml();
+			m_pTempXML->CreateXMLFile("Streamer");
+
+			m_pCopyXML->m_IsProtected = true;
+			m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_pCopyXML->m_IsProtected,BoolKey);
 
 			dw = OSNRpcGetServiceInfo((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 			if(EXIT_SUCCESS == dw)
 			{
-				DWORD dw = OSNRpcGetClientInfo();
+				DWORD dw = OSNRpcGetClientInfo(m_pTempXML);
 				if(EXIT_SUCCESS == dw)
 				{
-					DWORD size = m_pCopyXML->m_pTempXML->GetXMLText(pXMLText);
+					DWORD size = m_pTempXML->GetXMLText(pXMLText);
 					OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,size);
 					LOG(INFO) << "ST_OP_ADD_CLIENTS CMD successful!";
 				}
@@ -1025,7 +1305,30 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_ADD_CLIENTS CMD failed(OSNRpcGetServiceInfo)!";
 			}
-			delete(m_pCopyXML->m_pTempXML);
+			delete(m_pTempXML);
+		}
+		break;
+
+	case ST_OP_GET_CLIENTS_INFO:
+		{
+			LOG(INFO) << "ST_OP_GET_CLIENTS_INFO CMD start.";
+
+			COSNxml *m_pTempXML = new COSNxml();
+			m_pTempXML->CreateXMLFile("Streamer");
+
+			DWORD dw = OSNRpcGetClientInfo(m_pTempXML);
+			if(EXIT_SUCCESS == dw)
+			{
+				DWORD size = m_pTempXML->GetXMLText(pXMLText);
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,size);
+				LOG(INFO) << "ST_OP_GET_CLIENTS_INFO CMD successful!";
+			}
+			else
+			{
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+				LOG(INFO) << "ST_OP_GET_CLIENTS_INFO CMD failed(OSNRpcGetClientInfo)!";
+			}
+			delete(m_pTempXML);
 		}
 		break;
 
@@ -1239,6 +1542,8 @@ bool COSNRpcServer::OSNRpcCmdSHUTDOWN(SOCKADDR_IN inSockAddr)
 	if (nReturn == 0)
 	{
 		SetOSNRpcState(OSNRPC_STOP);
+		SetOSNRpcMsgState(OSNRPC_STOP);
+		SetOSNRpcSendState(OSNRPC_STOP);
 	}
 
 	return true;

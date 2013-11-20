@@ -81,9 +81,9 @@ enum KeyModifiers
 
 enum DiskFormat
 {
-	MBR,
-	GPT,
-	RAW
+	DISK_TYPE_NONE,
+	DISK_TYPE_MBR,
+	DISK_TYPE_GPT
 };
 
 enum DiskState
@@ -155,13 +155,13 @@ public:
 	wstring           *m_GUID;         //分区卷GUID
 	wstring           *m_VolumeLable;  //盘符(C: D:)
 	wstring           *m_DiskGUID;     //所在硬盘GUID
-	FileSys           m_FileSys;       //文件系统
+	wstring           *m_FileSys;       //文件系统
 	VolumeState       m_VolumeState;   //分区状态
 
 	      
 public: 
 	CVolumeInfo(DeviceRole role,unsigned __int64 Size,unsigned __int64 UsedSize,
-		wstring *guid,wstring *VolumeLable,wstring *diskguid,FileSys filesys,VolumeState state)
+		wstring *guid,wstring *VolumeLable,wstring *diskguid,wstring *filesys,VolumeState state)
 	{
 		if(role == Free)
 			m_Protected = L"false";
@@ -182,6 +182,7 @@ public:
 	{
 		delete(m_GUID);
 		delete(m_VolumeLable);
+		delete(m_FileSys);
 		delete(m_DiskGUID);
 	}
 };

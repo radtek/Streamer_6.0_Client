@@ -54,47 +54,47 @@ public:
 	char			g_ExeFilePath[MAX_PATH];
 
 
-	HANDLE          m_HCSendNotificationThreadHandle;
-	HANDLE          m_HCDssSendNotificationEventHandle;
-	HANDLE			m_HCVssSendNotificationEventHandle;
+	//HANDLE          m_HCSendNotificationThreadHandle;
+	//HANDLE          m_HCDssSendNotificationEventHandle;
+	//HANDLE			m_HCVssSendNotificationEventHandle;
 
-	HANDLE			m_HCRescanDiskEventHandle;
-	HANDLE			m_HCRescanDiskThreadHandle;
-	BOOL            m_HCRescanDiskThreadRunFlag;
+	//HANDLE			m_HCRescanDiskEventHandle;
+	//HANDLE			m_HCRescanDiskThreadHandle;
+	//BOOL            m_HCRescanDiskThreadRunFlag;
 
 	BOOL            m_CreateRescanEventToHostmirror;
 
-	BOOL            m_HCThreadRunFlag;
+	//BOOL            m_HCThreadRunFlag;
 	BOOL            m_PassEventToDss;
 	BOOL			    m_PassEventToVss;
 
-	CRemoteServer	*m_pRemoteServer;
+//	CRemoteServer	*m_pRemoteServer;
 	
 
 public:
 
 	DWORD GetIPAddressByHostName(char *pServerName,ULONG *pIPAddress);
 
-	CRemoteServer       * GetRemoteServerInfo(){return m_pRemoteServer;}
-	void GetClusterServerInfo();
+//	CRemoteServer       * GetRemoteServerInfo(){return m_pRemoteServer;}
+//	void GetClusterServerInfo();
 
 	static DWORD        WINAPI OSNHBSendNotificationThread(void *pData);
-	static DWORD        WINAPI OSNHBRescanDiskThread(void *pData);
+	//static DWORD        WINAPI OSNHBRescanDiskThread(void *pData);
 
 	void   HandleVssNotification();
-	void   HandleDssNotification();
+//	void   HandleDssNotification();
 
-	void   SendNotificationToRemoteServer();
+//	void   SendNotificationToRemoteServer();
 
-    void   QueryMirrorNotificationInfo(bool Dss =true);
+//    void   QueryMirrorNotificationInfo(bool Dss =true);
 
-	DWORD  CreateHBSendNotificationThread();
-	DWORD  CreateHBRescanDiskThread();
-	void   StopHBSendNotificationThread();
-	void   StopHBRescanDiskThread();
+	DWORD  CreateHCSendNotificationThread();
+//	DWORD  CreateHBRescanDiskThread();
+//	void   StopHBSendNotificationThread();
+//	void   StopHBRescanDiskThread();
 
-	void   PassEventHandleToDriver();
-    void   OSNRescanDisk();
+//	void   PassEventHandleToDriver();
+//    void   OSNRescanDisk();
 	void CheckLogfile();
 	COSNService::COSNService();
 	COSNService::~COSNService();
@@ -145,7 +145,7 @@ public:
 													unsigned int command,
 													 ULONG ipAddress);
 
-	void			FreeAllocatedMemory();
+//	void			FreeAllocatedMemory();
 	LONG GetExePath(char * pPath, unsigned int &dwSize);
 	LONG	 GetRegistryValue(char *	pRegPath, 
 							DWORD	dwValueType, 

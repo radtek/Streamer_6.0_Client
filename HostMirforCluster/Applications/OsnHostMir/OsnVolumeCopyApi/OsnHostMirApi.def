@@ -50,6 +50,7 @@ OsnGUIDToString
 OsnGUIDFromString
 OsnCheckGptDisk
 OsnCheckGptVolume
+OsnCheckDiskType
 OSNGetVolumeSize
 
 OSNCreateDssNotificationEvent

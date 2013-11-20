@@ -1412,6 +1412,52 @@ int    __cdecl     OsnCheckGptDisk(unsigned int diskIndex)
 	}
 	return -1;
 }
+
+int    __cdecl     OsnCheckDiskType(unsigned int diskIndex)
+{
+	HANDLE	hFile;
+	char	deviceName[MAX_PATH];
+
+	sprintf_s(deviceName,MAX_PATH,"\\\\.\\PhysicalDrive%d\0",diskIndex);
+	hFile =	CreateFile(deviceName,
+						GENERIC_WRITE | GENERIC_READ,
+						FILE_SHARE_READ | FILE_SHARE_WRITE,
+						NULL,
+						OPEN_EXISTING,
+						0,
+						NULL);
+	if (hFile == INVALID_HANDLE_VALUE) 
+	{
+		return -1;
+	}
+
+	ULONG	size = sizeof(DRIVE_LAYOUT_INFORMATION_EX) + 32*sizeof(PARTITION_INFORMATION_EX);
+	PDRIVE_LAYOUT_INFORMATION_EX	pDriveLayoutInfo = (PDRIVE_LAYOUT_INFORMATION_EX) malloc(size);
+	DWORD						retBytes;
+
+
+	if(!DeviceIoControl(hFile,
+					IOCTL_DISK_GET_DRIVE_LAYOUT_EX,
+					NULL,
+					0,
+					pDriveLayoutInfo,
+					size,
+					&retBytes,
+					NULL))
+	{
+		CloseHandle(hFile);
+		return -1;
+	}
+	CloseHandle(hFile);
+	switch(pDriveLayoutInfo->PartitionStyle)
+	{
+		case PARTITION_STYLE_GPT:return 2;
+		case PARTITION_STYLE_MBR:return 1;
+		default :return 0;
+	}
+	return -1;
+}
+
 int    __cdecl     OsnCheckGptVolume(const char drive)
 {
     HANDLE	hFile;

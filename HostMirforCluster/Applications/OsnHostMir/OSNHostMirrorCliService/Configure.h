@@ -68,8 +68,8 @@ public:
 };
 
 #define HCMAXIMUM_SOCKET_LISTENING       128
-#define OSNRPC_HCSOCKET_CLIENT_PORT	    9997		//default OSN RPC Client port
-#define	OSNRPC_HCSOCKET_SERVICE_PORT	9998		//Default OSN Rpc service port
+#define OSN_SERVER_LISTENING	        9997		//default OSN RPC Client port
+#define	OSN_CLIENT_LISTENING	        9998		//Default OSN Rpc service port
 
 #define	OSNRPC_HCMAX_MSG_LEN			1024*512			//Maximum message length sent by OSN Rpc service
 #define OSNRPC_HCMAX_MSG				2			//Maximum outstanding messages sent by the client
@@ -126,6 +126,9 @@ enum st_op_code
 	ST_OP_DEL_CLIENTS,
 	ST_OP_ADD_BACKUP,
 	ST_OP_ESTABLISH_CHANNELS,
+	ST_OP_GET_CLIENTS_INFO,
+	ST_OP_CLIENT_HEARTBEAT = 32,
+	ST_OP_MAX,
 };
 
 #define OSN_REMOTE_CMD_FINDNEWCLIENT                             0x0007             //询问客户端是否可添加

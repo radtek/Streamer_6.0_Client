@@ -27,7 +27,7 @@ extern	COSNService			*pOSNService;
 COSNRpcSocket::COSNRpcSocket()
 {
 	m_socket	= INVALID_SOCKET;
-	m_unPort	= OSNRPC_HCSOCKET_SERVICE_PORT;
+	m_unPort	= OSN_CLIENT_LISTENING;
 	m_nError	= 0;
 	m_startSocketEventHandle =NULL;
 	m_startSocketSuccess = false;

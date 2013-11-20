@@ -83,6 +83,7 @@ int     __cdecl     OsnGUIDToString(char* pStringBuffer,GUID guid);
 int     __cdecl     OsnGUIDFromString(char* pStringBuffer,GUID *guid);
 int    __cdecl     OsnCheckGptDisk(unsigned int diskIndex);
 int    __cdecl     OsnCheckGptVolume(const char drive);
+int    __cdecl     OsnCheckDiskType(unsigned int diskIndex);
 int     __cdecl     OsnGetDiskClusterMirrorRemoteState(MIRROR_INFO *pMirrorInfo,QUERY_MIRROR_STATE *pState);
 int __cdecl OsnGetVolumeClusterMirrorRemoteState(MIRROR_INFO *pMirrorInfo,QUERY_MIRROR_STATE *pState);
 int  __cdecl OSNCreateDssNotificationEvent();

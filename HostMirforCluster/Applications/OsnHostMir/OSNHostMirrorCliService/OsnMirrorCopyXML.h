@@ -31,7 +31,7 @@ public:
 	char            *m_InitiatorIPs;
 	bool            m_IsProtected;
 
-	COSNxml       *m_pTempXML;
+//	COSNxml       *m_pTempXML;
 	INSTALLTYPE   m_InstallType;
 
 public:
@@ -41,11 +41,11 @@ public:
 	void COsnMirrorCopyXML::InitializeMembers();
 	void COsnMirrorCopyXML::GetSystemVolumesInfo();
 	void COsnMirrorCopyXML::GetSystemDisksInfo();
-	void COsnMirrorCopyXML::RefreshVolumeListXML();
-	void COsnMirrorCopyXML::RefreshChannelListXML();
-	void COsnMirrorCopyXML::QueryFCChannel();
-	void COsnMirrorCopyXML::RefreshDiskListXML();
-	void COsnMirrorCopyXML::RefreshClientXML();
+	void COsnMirrorCopyXML::RefreshVolumeListXML(COSNxml *m_pTempXML);
+	void COsnMirrorCopyXML::RefreshChannelListXML(COSNxml *m_pTempXML);
+	void COsnMirrorCopyXML::QueryFCChannel(COSNxml *m_pTempXML);
+	void COsnMirrorCopyXML::RefreshDiskListXML(COSNxml *m_pTempXML);
+	void COsnMirrorCopyXML::RefreshClientXML(COSNxml *m_pTempXML);
 	void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo();
 	void COsnMirrorCopyXML::GetDiskCopyMirrorInfo();
 	void COsnMirrorCopyXML::MoveNext(char *pSou,char *pDes,int DesLength,char sign);
@@ -57,7 +57,7 @@ public:
 	DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pTargetIP,char *pInitiatorIP,char *pIqn);
 	DWORD COsnMirrorCopyXML::GetSessionIDByIqn(ULONGLONG *pSessionID,ULONGLONG *pAdapterID,char *pIqn);
 	DWORD COsnMirrorCopyXML::DisConnectiSCSIChannel(char *pIPAddress,char *pIqn);
-	DWORD COsnMirrorCopyXML::QueryiSCSIChannel();
+	DWORD COsnMirrorCopyXML::QueryiSCSIChannel(COSNxml *m_pTempXML);
 	DWORD COsnMirrorCopyXML::GetIsClusterByGUID(wstring *srcguid,wstring *dstguid);
 	DWORD COsnMirrorCopyXML::GetEimModebyGUID(wstring *srcguid,wstring *dstguid);
 	DWORD COsnMirrorCopyXML::QueryRegKey(char *pKeyName,char *pValueName,void *pValue,int Length,RegKey sign);

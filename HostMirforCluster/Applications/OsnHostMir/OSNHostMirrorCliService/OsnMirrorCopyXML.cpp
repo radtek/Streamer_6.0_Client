@@ -25,7 +25,7 @@ COsnMirrorCopyXML::COsnMirrorCopyXML()
 	pFilePath          = NULL;
 	pFileMoudlePath    = NULL;
 	ImagePath          = NULL;
-	m_pTempXML         = NULL;
+//	m_pTempXML         = NULL;
 
 	m_ServerIP = new char[bufsize];
 	m_TargetIqn = new char[bufsize];
@@ -92,8 +92,8 @@ COsnMirrorCopyXML::COsnMirrorCopyXML()
 
 COsnMirrorCopyXML::~COsnMirrorCopyXML()
 {
-	if(m_pTempXML != NULL)
-		delete(m_pTempXML);
+	/*if(m_pTempXML != NULL)
+		delete(m_pTempXML);*/
 
 	if(pVolumeMirrorList != NULL)
 		delete(pVolumeMirrorList);
@@ -255,8 +255,8 @@ void COsnMirrorCopyXML::InitializeMembers()
 {
 	LOG(INFO) << "Start InitializeMembers";
 
-	GetSystemDisksInfo();
 	GetSystemVolumesInfo();
+	GetSystemDisksInfo();
 	ReadConfigurationFile();
 
 	try
@@ -449,27 +449,7 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 			wstring *diskguid = new wstring(DiskGUIDW);
 
 			pclsObj->Get(L"FileSystem", 0, &vtProp, 0, 0);
-			wstring *VolumeLabe2	= new wstring(vtProp.bstrVal);
-			if(wcscmp(VolumeLabe2->c_str(),L"NTFS") == 0)
-			{
-				Filesys = NTFS;
-			}
-			else if(wcscmp(VolumeLabe2->c_str(),L"FAT32") == 0)
-			{
-				Filesys = FAT32;
-			}
-			else if(wcscmp(VolumeLabe2->c_str(),L"EXT3") == 0)
-			{
-				Filesys = EXT3;
-			}
-			else if(wcscmp(VolumeLabe2->c_str(),L"EXT4") == 0)
-			{
-				Filesys = EXT4;
-			}
-			else
-			{
-				Filesys = FUnknown;
-			}
+			wstring *FileSystem	= new wstring(vtProp.bstrVal);
 
 			pclsObj->Get(L"Size", 0, &vtProp, 0, 0);
 			size = _wtoi64(vtProp.bstrVal);
@@ -539,14 +519,13 @@ void COsnMirrorCopyXML::GetSystemVolumesInfo()
 					}
 				}
 
-				CVolumeInfo	*pVolumeInfo = new CVolumeInfo(Free,size,size-freesize,guid,VolumeLabel,diskguid,(FileSys)Filesys,OnLine);
+				CVolumeInfo	*pVolumeInfo = new CVolumeInfo(Free,size,size-freesize,guid,VolumeLabel,diskguid,FileSystem,OnLine);
 
 				if(this->pVolumeList->GetVolumeInfo(guid) == NULL)
 					this->pVolumeList->AddItem((DWORD)pVolumeInfo);
 			}
 
 			pclsObj->Release();
-			delete(VolumeLabe2);
 		}
 		OSNCloseWMI(&m_pSvc,&m_pLoc,&pEnumerator);
 	}
@@ -597,6 +576,7 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 
 	for(int i=0;i<64;i++)
 	{
+		DiskFormat diskType;
 		pEnumerator->Next(WBEM_INFINITE, 1,&pclsObj, &uReturn);
 		//没有东西了就跳出去吧
 		if(0 == uReturn)
@@ -627,7 +607,15 @@ void COsnMirrorCopyXML::GetSystemDisksInfo()
 
 				unsigned __int64 UseSize = this->pVolumeList->GetBlocksBySignature(chguid);
 
-				CDiskInfo *pNewDisk = new CDiskInfo(Free,pDisk.m_DiskSize,UseSize,pDisk.m_DiskIndex,chguid,DiskOEM,MBR,Basic,Inited);
+				int ret = OsnCheckDiskType(pDisk.m_DiskIndex);
+				if(ret>=0)
+				{
+					diskType = (DiskFormat)ret;
+				}
+				else
+					diskType = DISK_TYPE_NONE;
+
+				CDiskInfo *pNewDisk = new CDiskInfo(Free,pDisk.m_DiskSize,UseSize,pDisk.m_DiskIndex,chguid,DiskOEM,diskType,Basic,Inited);
 				if(pNewDisk != NULL)
 				{
 					if(pDiskList->GetDiskInfo(pNewDisk->m_Guid)==NULL 
@@ -1359,7 +1347,7 @@ void COsnMirrorCopyXML::GetVolumeCopyMirrorInfo()
 	}
 }
 
-void COsnMirrorCopyXML::QueryFCChannel()
+void COsnMirrorCopyXML::QueryFCChannel(COSNxml *m_pTempXML)
 {
 	CWmi  *pWmi = new CWmi(L"ROOT\\WMI");
 	if(!pWmi)
@@ -1658,7 +1646,7 @@ DWORD COsnMirrorCopyXML::DisConnectiSCSIChannel(char *pIPAddress,char *pIqn)
 	return dw;
 }
 
-DWORD COsnMirrorCopyXML::QueryiSCSIChannel()
+DWORD COsnMirrorCopyXML::QueryiSCSIChannel(COSNxml *m_pTempXML)
 {
 	IWbemServices          *m_pSvc = NULL;
 	IWbemLocator           *m_pLoc = NULL;
@@ -1747,15 +1735,15 @@ DWORD COsnMirrorCopyXML::QueryiSCSIChannel()
 	return 0;
 }
 
-void COsnMirrorCopyXML::RefreshChannelListXML()
+void COsnMirrorCopyXML::RefreshChannelListXML(COSNxml *m_pTempXML)
 {
 	m_pTempXML->AddXMLElement("Client","ChannelList");
 
-	QueryFCChannel();
-	QueryiSCSIChannel();
+	QueryFCChannel(m_pTempXML);
+	QueryiSCSIChannel(m_pTempXML);
 }
 
-void COsnMirrorCopyXML::RefreshVolumeListXML()
+void COsnMirrorCopyXML::RefreshVolumeListXML(COSNxml *m_pTempXML)
 {
 	int index=0;
 	for( int i=0;i<this->pVolumeList->GetLength();i++)
@@ -1794,7 +1782,7 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 		_itoa_s(i,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("Partition","Index",temp);
 
-		_itoa_s(pVolumeInfo->m_FileSys,temp,sizeof(temp),10);
+		WcharToChar((wchar_t*)pVolumeInfo->m_FileSys->c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("Partition","FS",temp);
 
 		/*WcharToChar((wchar_t*)pVolumeInfo->m_DiskGUID->c_str(),temp,sizeof(temp));
@@ -1807,7 +1795,7 @@ void COsnMirrorCopyXML::RefreshVolumeListXML()
 	}
 }
 
-void COsnMirrorCopyXML::RefreshDiskListXML()
+void COsnMirrorCopyXML::RefreshDiskListXML(COSNxml *m_pTempXML)
 {
 	m_pTempXML->AddXMLElement("Client","DiskList");
 
@@ -1822,6 +1810,9 @@ void COsnMirrorCopyXML::RefreshDiskListXML()
 		WcharToChar((wchar_t*)pDiskInfo->m_Protected.c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("DiskList","IsProtected",temp);
 
+		_i64toa_s(pDiskInfo->m_DiskFormat,temp,sizeof(temp),10);
+		m_pTempXML->AddXMLAttribute("DiskList","Type",temp);
+
 		sizeTemp = pDiskInfo->m_DiskSize *512;
 		_i64toa_s(sizeTemp,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("DiskList","Size",temp);
@@ -1831,7 +1822,9 @@ void COsnMirrorCopyXML::RefreshDiskListXML()
 		m_pTempXML->AddXMLAttribute("DiskList","Used",temp);
 
 		_itoa_s(pDiskInfo->m_DiskIndex,temp,sizeof(temp),10);
-		m_pTempXML->AddXMLAttribute("DiskList","Name",temp);
+		string s = "disk";
+		s += temp;
+		m_pTempXML->AddXMLAttribute("DiskList","Name",(char *)s.c_str());
 
 		WcharToChar((wchar_t*)pDiskInfo->m_Guid->c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("DiskList","Guid",temp);
@@ -1839,13 +1832,13 @@ void COsnMirrorCopyXML::RefreshDiskListXML()
 		/*WcharToChar((wchar_t*)pDiskInfo->m_DiskOEM->c_str(),temp,sizeof(temp));
 		m_pTempXML->AddXMLAttribute("DiskList","Oem",temp);*/
 
-		m_pTempXML->AddXMLAttribute("DiskList","FS","0");
+		m_pTempXML->AddXMLAttribute("DiskList","FS","");
 		m_pTempXML->AddXMLAttribute("DiskList","State","1");
 
 	}
 }
 
-void COsnMirrorCopyXML::RefreshClientXML()
+void COsnMirrorCopyXML::RefreshClientXML(COSNxml *m_pTempXML)
 {
 	char hostname[32],*ipAddress = NULL,SysVersion[32]; 
 	DWORD dw = pOSNService->m_OSNRpcServer.OSNRpcGetBasicInfo(hostname,&ipAddress,SysVersion);
