@@ -1849,7 +1849,7 @@ void COsnMirrorCopyXML::RefreshClientXML(COSNxml *m_pTempXML)
 	m_pTempXML->AddXMLAttribute("Client","IPs",ipAddress);
 	m_pTempXML->AddXMLAttribute("Client","HostName",hostname);
 	m_pTempXML->AddXMLAttribute("Client","SystemType",SYS_TYPE_WINDOWS);
-	m_pTempXML->AddXMLAttribute("Client","SystemVersion",SysVersion);
+	m_pTempXML->AddXMLAttribute("Client","SysVersion",SysVersion);
 
 	if(ipAddress != NULL)
 	{

@@ -450,15 +450,6 @@ DWORD COSNRpcServer::OSNRpcHeartBeat(char *pBuffer,unsigned int Length)
 
 	pHeader = (PHC_MESSAGE_HEADER)pBuffer;
 
-	setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(char *)&overtime,sizeof(overtime));
-	if(WSAGetLastError() != 0)
-	{
-		LOG(ERROR)<< "setsockopt() error:" <<WSAGetLastError();
-		closesocket(sock);
-		WSACleanup();
-		return -1;
-	}
-
 	if(pHeader->dataLength != 0)
 	{
 		bytes = recv(sock,(char*)((DWORD)pHeader + OSNRPC_HCMSGHEAD_LEN),pHeader->dataLength,0);
@@ -1244,10 +1235,10 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 				if(EXIT_SUCCESS == dw)
 				{
 					pXMLTemp->AddXMLElement("Client");
-					pXMLTemp->AddXMLAttribute("Client","Name",hostname);
+					pXMLTemp->AddXMLAttribute("Client","HostName",hostname);
 					pXMLTemp->AddXMLAttribute("Client","IPs",IPs);
 					pXMLTemp->AddXMLAttribute("Client","SystemType",SYS_TYPE_WINDOWS);
-					pXMLTemp->AddXMLAttribute("Client","SystemVersion",SysVersion);
+					pXMLTemp->AddXMLAttribute("Client","SysVersion",SysVersion);
 					pXMLTemp->AddXMLAttribute("Client","ID",m_pCopyXML->m_ClientID);
 
 					DWORD size = pXMLTemp->GetXMLText(pXMLText);
