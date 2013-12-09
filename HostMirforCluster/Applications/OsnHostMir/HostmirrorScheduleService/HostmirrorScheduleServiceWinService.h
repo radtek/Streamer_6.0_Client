@@ -163,9 +163,38 @@ namespace HostmirrorScheduleService {
 				if(byteCount > 0)
 				{
 					m_MsgBuffer[byteCount] = '\0';
-
-					m_MemStream->Seek(0,SeekOrigin::Begin);
-					m_pSocketMsgInfo = static_cast<CSocketMsgInfo^>(m_pDesSerializer->Deserialize(m_MemStream));	
+					MemoryStream^ recvStream = gcnew MemoryStream(m_MsgBuffer, 0,byteCount);
+					//m_MemStream->Seek(0,SeekOrigin::Begin);
+					
+					//m_pSocketMsgInfo = static_cast<CSocketMsgInfo^>(m_pDesSerializer->Deserialize(m_MemStream));
+					XmlDocument ^recvDoc = gcnew XmlDocument();
+					recvDoc->Load(recvStream);
+					XmlElement ^recvElement0 = (XmlElement^)recvDoc->SelectSingleNode("CSocketMsgInfo/m_SendCommand");
+					if(recvElement0 == nullptr)
+					{
+						throw("recvElement0 is null");
+					}
+					XmlElement ^recvElement1 = (XmlElement^)recvDoc->SelectSingleNode("CSocketMsgInfo/m_ParaNum");
+					if(recvElement1 == nullptr)
+					{
+						throw("recvElement1 is null");
+					}
+					String ^string0 = recvElement0->InnerText;
+					String ^string1 = recvElement1->InnerText;
+					int int0 = Convert::ToInt32(string0);
+					int int1 = Convert::ToInt32(string1);
+					
+					XmlNode ^recvElement2 = (XmlElement^)recvDoc->SelectSingleNode("CSocketMsgInfo/m_StrParaList");
+					if(recvElement2 == nullptr)
+					{
+						throw("recvElement2 is null");
+					}
+					array <String^>^ myArray=gcnew array <String^>(4){"","","",""};
+					for(int j = 0;j<recvElement2->ChildNodes->Count;j++)
+					{
+						myArray[j]= recvElement2->ChildNodes[j]->InnerText;
+					}
+					m_pSocketMsgInfo = gcnew CSocketMsgInfo((RpcServiceCommand)int0,int1,myArray); 
 						
 					m_MemoryStreamMutex->ReleaseMutex();
 					bMutexFlag = false;

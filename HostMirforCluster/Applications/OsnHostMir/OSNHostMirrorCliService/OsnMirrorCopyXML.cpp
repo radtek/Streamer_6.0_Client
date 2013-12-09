@@ -1497,6 +1497,381 @@ DWORD COsnMirrorCopyXML::QueryPortNameByIP(char *pInitiatorIP,char *pPortName,ch
 	return 0;
 }
 
+DWORD COsnMirrorCopyXML::FormatCdpSchedule(CDPSchedule schedule,string &retSchedule)
+{
+	DWORD dw = 0;
+	/*if (MODE_MINUTES == schedule.Mode &&
+		(schedule.StartDates == null || schedule.StartTime == null || schedule.Modifier == null))
+		return null;
+	if (MODE_DAYLY == schedule.Mode &&
+		(schedule.StartDates == null || schedule.StartTime == null || schedule.Modifier == null))
+		return null;
+	if (ScheduleMode.MODE_WEEKLY == schedule.Mode &&
+		(schedule.StartTime == null || schedule.Modifier == null || schedule.Modifier.Week.Days == null))
+		return null;
+	if (ScheduleMode.MODE_MONTHLY == schedule.Mode &&
+		(schedule.StartDates == null || schedule.StartTime == null))
+		return null;*/
+	//String strSchedule = null;
+	//String[] weekDayArray = null;
+	char tempSchedule[1024];
+	switch (schedule.Mode)
+	{
+	case MODE_MINUTES:
+		{
+			sprintf_s(tempSchedule,"Year:%d;Month:%d;Day:%d;WeekNum:ALL;DayOfWeek:ALL;Hour:%d;Minute:%d;Second:%d;IntervalDays:ALL;IntervalMinutes:%d",
+				schedule.StartDates.Year, schedule.StartDates.Month, schedule.StartDates.Day,
+				schedule.StartTime.Hour, schedule.StartTime.Minute, schedule.StartTime.Sencond,
+				schedule.Modifier.IntervalMinutes);
+			retSchedule = tempSchedule;
+			dw = EXIT_SUCCESS;
+		}
+		break;
+	//case ScheduleMode.MODE_DAYLY:
+	//	start = schedule.StartDates[0];
+	//	strSchedule = String.Format("Year:{0};Month:{1};Day:{2};WeekNum:ALL;DayOfWeek:ALL",
+	//		start.Year, start.Month, start.Day);
+	//	strSchedule = String.Format("{0};Hour:{1};Minute:{2};Second:{3}", strSchedule,
+	//		schedule.StartTime.Hour, schedule.StartTime.Minute, schedule.StartTime.Sencond);
+	//	strSchedule = String.Format("{0};IntervalDays:{1};IntervalMinutes:ALL", strSchedule,
+	//		schedule.Modifier.IntervalDays);
+	//	break;
+	//case ScheduleMode.MODE_WEEKLY:
+	//	weekDayArray = new String[schedule.Modifier.Week.Days.Length];
+	//	for (int index = 0; index < schedule.Modifier.Week.Days.Length; ++index)
+	//		weekDayArray[index] = ((int)(schedule.Modifier.Week.Days[index])).ToString();
+	//	strSchedule = String.Format("Year:ALL;Month:ALL;Day:ALL;WeekNum:{0};DayOfWeek:{1}",
+	//		schedule.Modifier.Week.Base, String.Join(",", weekDayArray));
+	//	strSchedule = String.Format("{0};Hour:{1};Minute:{2};Second:{3}", strSchedule,
+	//		schedule.StartTime.Hour, schedule.StartTime.Minute, schedule.StartTime.Sencond);
+	//	strSchedule = String.Format("{0};IntervalDays:ALL;IntervalMinutes:ALL", strSchedule);
+	//	break;
+	//case ScheduleMode.MODE_MONTHLY:
+	//	String[] monthArray = new String[schedule.StartDates.Length];
+	//	for (int index = 0; index < schedule.StartDates.Length; ++index)
+	//		monthArray[index] = schedule.StartDates[index].Month.ToString();
+	//	bool dayFlag = true;//default to indicate specific day
+	//	if (schedule.StartDates[0].Day == 0)
+	//		dayFlag = false;
+	//	if (schedule.Modifier != null)
+	//	{
+	//		weekDayArray = new String[schedule.Modifier.Week.Days.Length];
+	//		for (int index = 0; index < schedule.Modifier.Week.Days.Length; ++index)
+	//			weekDayArray[index] = ((int)(schedule.Modifier.Week.Days[index])).ToString();
+	//	}
+	//	strSchedule = String.Format("Year:ALL;Month:{0};Day:{1};WeekNum:{2};DayOfWeek:{3}",
+	//		String.Join(",", monthArray), dayFlag ? ((int)(schedule.StartDates[0].Day)).ToString() : "ALL",
+	//		(dayFlag || null == schedule.Modifier) ? "ALL" : ((int)(schedule.Modifier.Week.Base)).ToString(),
+	//		(dayFlag || null == schedule.Modifier) ? "ALL" : String.Join(",", weekDayArray));
+	//	strSchedule = String.Format("{0};Hour:{1};Minute:{2};Second:{3}", strSchedule,
+	//		schedule.StartTime.Hour, schedule.StartTime.Minute, schedule.StartTime.Sencond);
+	//	strSchedule = String.Format("{0};IntervalDays:ALL;IntervalMinutes:ALL", strSchedule);
+	//	break;
+	default: break;
+	}
+	return dw;
+}
+
+DWORD COsnMirrorCopyXML::SendCommandToService(RpcServiceCommand cmd, string paras[],int ParaNum,CRetMsgInfo result)
+{
+	char temp[5];
+
+	char cmdBuffer[4096];
+	memset(cmdBuffer,0,4096);
+	try
+	{
+		COSNxml *pXMLTemp = new COSNxml();
+		pXMLTemp->CreateXMLFile("CSocketMsgInfo");
+
+		pXMLTemp->AddXMLElement("m_SendCommand");
+		_itoa(cmd,temp,10);
+		pXMLTemp->AddXMLText("m_SendCommand",temp);
+
+		pXMLTemp->AddXMLElement("m_ParaNum");
+		_itoa(ParaNum,temp,10);
+		pXMLTemp->AddXMLText("m_ParaNum",temp);
+
+		pXMLTemp->AddXMLElement("m_StrParaList");
+		for(int i = 0;i<ParaNum;i++)
+		{
+			pXMLTemp->AddXMLElement("m_StrParaList","string");
+			pXMLTemp->AddXMLText("string",(char *)(paras[i].c_str()));
+		}
+
+		DWORD size = pXMLTemp->GetXMLText(cmdBuffer);
+		delete pXMLTemp;
+		//send to HostmirrorScheduleService
+		WSADATA wsa;
+
+		if(WSAStartup(MAKEWORD(2,2),&wsa)!=0)
+		{
+			LOG(ERROR)<<"SendCommandToService HeartBeat WSAStartup error.";
+			return -1;
+		}
+
+		SOCKET sock;
+		if((sock=socket(AF_INET,SOCK_STREAM,0))==INVALID_SOCKET){
+			LOG(ERROR)<<"SendCommandToService HeartBeat socket error.";
+			WSACleanup();
+			return -1;
+		}
+		struct sockaddr_in serverAddress;
+		memset(&serverAddress,0,sizeof(sockaddr_in));
+		serverAddress.sin_family=AF_INET;
+		serverAddress.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+		serverAddress.sin_port = htons(59292);
+
+		connect(sock,(sockaddr*)&serverAddress,sizeof(serverAddress));
+		if(WSAGetLastError() !=0)
+		{
+			LOG(ERROR)<<"SendCommandToService HeartBeat connect error:"<<WSAGetLastError();
+			closesocket(sock);
+			WSACleanup();
+			return -1;
+		}
+
+		int a = send(sock,cmdBuffer,size,0);
+		if(WSAGetLastError() != 0)
+		{
+			LOG(ERROR)<< "SendCommandToService send() error:" << WSAGetLastError();
+			closesocket(sock);
+			WSACleanup();
+			return -1;
+		}
+
+		memset(cmdBuffer,0,4096);
+
+		timeval overtime;
+		overtime.tv_sec=5;
+		overtime.tv_usec=0;
+		setsockopt(sock,SOL_SOCKET,SO_RCVTIMEO,(char *)&overtime,sizeof(overtime));
+		if(WSAGetLastError() != 0)
+		{
+			LOG(ERROR)<< "SendCommandToService setsockopt() error:" <<WSAGetLastError();
+			closesocket(sock);
+			WSACleanup();
+			return -1;
+		}
+		int bytes = recv(sock,cmdBuffer,sizeof(4096),0);
+		if(bytes>0)
+		{
+			wchar_t xml[4096];
+			char    temp[1024];
+			memset(xml,0,4096*sizeof(wchar_t));
+			memset(xml,0,1024);
+			pXMLTemp->UTF_8ToUnicode((char *)cmdBuffer,xml);
+
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->LoadFile(xml);
+
+			memset(xml,0,1024);
+			pXMLTemp->GetXMLNodeText("CRetMsgInfo","m_RepServiceStatus",temp);
+			string    retStatus(temp);
+			result.m_RepServiceStatus = (RepServiceStatus)atoi(retStatus.c_str());
+
+			memset(xml,0,1024);
+			pXMLTemp->GetXMLNodeText("CRetMsgInfo","m_RetMsgInfo",temp);
+			string    retMsgInfo(temp);
+			result.m_RetMsgInfo = retMsgInfo;
+
+			memset(xml,0,1024);
+			pXMLTemp->GetXMLNodeText("CRetMsgInfo","m_ErrorCode",temp);
+			string    retCode(temp);
+			result.m_ErrorCode = atoi(retCode.c_str());
+
+			delete pXMLTemp;
+		}
+
+		shutdown(sock,SD_BOTH);
+		closesocket(sock);
+		WSACleanup();
+		return 0;
+	}
+	catch(exception err)
+	{
+		return -1;
+	}
+}
+
+DWORD COsnMirrorCopyXML::AddCDPSchedule(char *SrcGUID,char *DesGUID,ULONG StartTime,ULONG IntervalMinutes,bool MirrorType)
+{
+	DWORD     dw = 0;
+	wchar_t   WSrcGUID[64];
+	wchar_t   WDesGUID[64];
+	CharToWchar(SrcGUID,WSrcGUID,_countof(WSrcGUID));
+	CharToWchar(DesGUID,WDesGUID,_countof(WDesGUID));
+
+	wstring   strSrcVolSignOffset(WSrcGUID);
+	wstring   strDesVolSignOffset(WDesGUID);
+	string   strParaMeter;
+
+	CMirrorInfo *pMirrorInfo     = NULL;
+	CVolumeInfo *pVolumeInfo     = NULL;
+	CDiskInfo   *pDiskInfo       = NULL;
+
+	try
+	{
+		if(MirrorType == false)
+		{
+			pMirrorInfo = this->pVolumeMirrorList->GetMirrorInfo(&strSrcVolSignOffset, &strDesVolSignOffset);
+			if(pMirrorInfo == NULL)
+			{
+				LOG(INFO) << "SetCDPSchedule,Volume error!";
+				return EXIT_FAILURE;
+			}
+
+			pVolumeInfo = this->pVolumeList->GetVolumeInfoByString(&strSrcVolSignOffset);
+			if(!pVolumeInfo)
+			{
+				LOG(INFO) << "SetCDPSchedule,Volume error!";
+				return EXIT_FAILURE;
+			}
+
+			strParaMeter += SrcGUID;
+			strParaMeter += "#";
+			strParaMeter += "Volume";
+		}
+		else
+		{
+			pMirrorInfo = this->pDiskMirrorList->GetDiskMirrorInfo(&strSrcVolSignOffset,true);
+			if(pMirrorInfo == NULL)
+			{
+				LOG(INFO) << "SetCDPSchedule,Disk error!";
+				return EXIT_FAILURE;
+			}
+
+			pDiskInfo = this->pDiskList->GetDiskInfo(&strSrcVolSignOffset);
+			if(!pDiskInfo)
+			{
+				LOG(INFO) << "SetCDPSchedule,Disk error!";
+				return EXIT_FAILURE;
+			}
+
+			strParaMeter += SrcGUID;
+			strParaMeter += "#";
+			strParaMeter += "Disk";
+		}
+
+		__time64_t timecurr  = _time64(NULL);
+		timecurr            += StartTime*60;
+		struct tm              tmstart;
+		localtime_s(&tmstart,&timecurr);
+
+		ScheduleModifier             modifier;
+		modifier.IntervalMinutes   = IntervalMinutes;
+
+		CDPSchedule                  schedule;
+		schedule.Mode              = MODE_MINUTES;
+		schedule.StartDates.Year   = tmstart.tm_year+1900;
+		schedule.StartDates.Month  = tmstart.tm_mon+1;
+		schedule.StartDates.Day    = tmstart.tm_mday;
+		schedule.StartTime.Hour    = tmstart.tm_hour;
+		schedule.StartTime.Minute  = tmstart.tm_min;
+		schedule.StartTime.Sencond = 0;
+		schedule.Modifier          = modifier;
+
+		RpcServiceCommand cmd = OSN_RC_CMD_CREATE_CDP_SCHEDULE;
+		CDP_SCHEDULE_MODE mode = MODE_DAY;
+		switch (schedule.Mode)
+		{
+		case MODE_MINUTES: mode = MODE_MINUTE; break;
+		case MODE_DAYLY:   mode = MODE_DAY;    break;
+		case MODE_WEEKLY:  mode = MODE_WEEK;   break;
+		case MODE_MONTHLY: mode = MODE_MONTH;  break;
+		default: break;
+		}
+
+		string strStartTime;
+		FormatCdpSchedule(schedule,strStartTime);
+		char Mode[5];
+		_itoa(mode,Mode,10);
+		string Paras[] = {strParaMeter,strStartTime,"",Mode};
+		int ParaNum = 4;
+
+		CRetMsgInfo rmi;
+		dw = SendCommandToService(cmd,Paras,ParaNum,rmi);
+		if (dw != 0)
+			dw = 5;
+		if (rmi.m_RepServiceStatus == RS_ERROR_NOT_FIND_DISK)
+			dw = 8;
+		else if (rmi.m_RepServiceStatus == RS_SUCCESS)
+			dw = 0;
+		else
+			dw=(int)(rmi.m_ErrorCode);
+
+		if (dw == 5)
+		{
+			LOG(INFO) << "请确认客户端是否支持CDP并运行正常.";
+		}
+		else if (dw == 8)
+		{
+			LOG(INFO) << "客户端未找到此卷.";
+		}
+		else if (dw != 0)
+		{
+			LOG(INFO) << "设置CDP计划失败,错误代码" << dw;
+		}
+		else
+		{
+			LOG(INFO) << "成功设置镜像的CDP计划.";
+		}
+		return dw;
+	}
+	catch(exception err)
+	{
+		LOG(INFO) << "SetCDPSchedule,error:" << err.what();
+	}
+	return EXIT_FAILURE;
+}
+
+DWORD COsnMirrorCopyXML::DelCDPSchedule(char *SrcGUID,bool MirrorType)
+{
+	DWORD     dw = 0;
+	try
+	{
+		CRetMsgInfo rmi;
+		string      temppara(SrcGUID);
+		RpcServiceCommand cmd = OSN_RC_CMD_DELETE_CDP_SCHEDULE;
+		if(MirrorType == 0)
+		{
+			temppara = temppara + "#" + "Volume";
+		}
+		else
+		{
+			temppara = temppara + "#" + "Disk";
+		}
+		string    para[] = {temppara};
+		//para[0] = paralist[1];
+		int ret = SendCommandToService(cmd, para,1,rmi);
+		if (ret != 0)
+			ret = 5;
+		if (rmi.m_RepServiceStatus == RS_ERROR_NOT_FIND_DISK)
+			ret = 8;
+		else if (rmi.m_RepServiceStatus == RS_SUCCESS)
+			ret = 0;
+		else
+			ret = (int)rmi.m_ErrorCode;
+
+		if (ret == 5)
+		{
+
+		}
+		else if (ret != 0)
+		{
+			LOG(INFO) << "删除镜像的CDP计划失败,错误代码:" << ret;
+		}
+		else if (0 == ret)
+		{
+			LOG(INFO) << "成功删除CDP计划.";
+		}
+	}
+	catch (exception err)
+	{
+		LOG(INFO) << "删除CDP计划时出现异常：" << err.what();
+	}
+	return EXIT_FAILURE;
+}
+
 DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pTargetIP,char *pInitiatorIP,char *pIqn)
 {
 	//Connect to server
@@ -1777,7 +2152,7 @@ void COsnMirrorCopyXML::RefreshVolumeListXML(COSNxml *m_pTempXML)
 		m_pTempXML->AddXMLAttribute("Partition","Guid",temp);
 
 		WcharToChar((wchar_t*)pVolumeInfo->m_VolumeLable->c_str(),temp,sizeof(temp));
-		m_pTempXML->AddXMLAttribute("Partition","name",temp);
+		m_pTempXML->AddXMLAttribute("Partition","Name",temp);
 
 		_itoa_s(i,temp,sizeof(temp),10);
 		m_pTempXML->AddXMLAttribute("Partition","Index",temp);
@@ -1840,8 +2215,9 @@ void COsnMirrorCopyXML::RefreshDiskListXML(COSNxml *m_pTempXML)
 
 void COsnMirrorCopyXML::RefreshClientXML(COSNxml *m_pTempXML)
 {
-	char hostname[32],*ipAddress = NULL,SysVersion[32]; 
-	DWORD dw = pOSNService->m_OSNRpcServer.OSNRpcGetBasicInfo(hostname,&ipAddress,SysVersion);
+	char hostname[32],*ipAddress = NULL;
+	string SysVersion; 
+	DWORD dw = pOSNService->m_OSNRpcServer.OSNRpcGetBasicInfo(hostname,&ipAddress,&SysVersion);
 
 	m_pTempXML->AddXMLElement("Client");
 
@@ -1849,7 +2225,7 @@ void COsnMirrorCopyXML::RefreshClientXML(COSNxml *m_pTempXML)
 	m_pTempXML->AddXMLAttribute("Client","IPs",ipAddress);
 	m_pTempXML->AddXMLAttribute("Client","HostName",hostname);
 	m_pTempXML->AddXMLAttribute("Client","SystemType",SYS_TYPE_WINDOWS);
-	m_pTempXML->AddXMLAttribute("Client","SysVersion",SysVersion);
+	m_pTempXML->AddXMLAttribute("Client","SysVersion",(char *)SysVersion.c_str());
 
 	if(ipAddress != NULL)
 	{

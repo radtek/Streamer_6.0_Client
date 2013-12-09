@@ -50,6 +50,15 @@ DWORD  COSNxml::AddXMLAttribute(char *pNodeName,char *pAttributeName,char *pAttr
 	return EXIT_SUCCESS;
 }
 
+DWORD  COSNxml::AddXMLText(char *pNodeName,char *pTextValue)
+{
+	m_pElement = (MSXML2::IXMLDOMElementPtr)m_pNodeSub;
+    m_pElement->Puttext((_bstr_t)(char*)pTextValue);
+    m_pNode->appendChild((MSXML2::IXMLDOMNodePtr)m_pElement);
+
+	return EXIT_SUCCESS;
+}
+
 DWORD  COSNxml::AddXMLElement(char *pFatName,char *pSubName)
 {
 	m_pNodeList = m_pRootElement->getElementsByTagName((_bstr_t)(char*)pFatName);

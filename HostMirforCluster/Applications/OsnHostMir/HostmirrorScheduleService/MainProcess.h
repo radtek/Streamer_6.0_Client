@@ -761,9 +761,30 @@ namespace HostmirrorScheduleService
 		}
 		void OsnRespondSocket(Socket^ socket,CRetMsgInfo^ retMsgInfo)
 		{
-			UTF8Encoding^ utf8 = gcnew UTF8Encoding();
-			String^ strRespond = OsnXmlSerialize(retMsgInfo->GetType(), retMsgInfo);
-			array<Byte>^ respondBytes = utf8->GetBytes(strRespond);
+			XmlDocument ^sendDoc = gcnew XmlDocument();
+
+			XmlDeclaration ^dec = sendDoc->CreateXmlDeclaration("1.0", "utf-8", nullptr);
+			sendDoc->AppendChild(dec);
+
+			XmlElement ^root = sendDoc->CreateElement("CRetMsgInfo");  
+			sendDoc->AppendChild(root);  
+
+			XmlElement ^element1 = sendDoc->CreateElement("m_RepServiceStatus");
+			element1->InnerText = ((int)retMsgInfo->m_RepServiceStatus).ToString(); 
+			root->AppendChild(element1);  
+
+			XmlElement ^element2 = sendDoc->CreateElement("m_RetMsgInfo");
+			element2->InnerText = retMsgInfo->m_RetMsgInfo;  
+			root->AppendChild(element2);  
+
+			XmlElement ^element3 = sendDoc->CreateElement("m_ErrorCode");
+			element3->InnerText = retMsgInfo->m_ErrorCode.ToString(); 
+			root->AppendChild(element3);  
+
+			MemoryStream^ pMem = gcnew MemoryStream();
+			sendDoc->Save(pMem);
+			
+			array<Byte>^ respondBytes = pMem->ToArray();
 			socket->Send(respondBytes);
 		}
 		String^ GetStringDayOfWeek(int iDayOfWeek)

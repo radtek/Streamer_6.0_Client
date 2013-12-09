@@ -5,6 +5,7 @@
 #include <locale.h>
 #include "Globallist.h"
 #include <Wbemidl.h>
+#include "CDPSchedule.h"
 #include "COMDEF.H"
 #include "OSNXml.h"
 #include "..\OsnVolumeCopyApi\Configure.h"
@@ -31,8 +32,7 @@ public:
 	char            *m_InitiatorIPs;
 	bool            m_IsProtected;
 
-//	COSNxml       *m_pTempXML;
-	INSTALLTYPE   m_InstallType;
+	INSTALLTYPE     m_InstallType;
 
 public:
 	COsnMirrorCopyXML();
@@ -53,6 +53,10 @@ public:
 	void COsnMirrorCopyXML::WriteConfigurationFile();
 	void COsnMirrorCopyXML::GetSystemMirrorInfo();
 
+	DWORD COsnMirrorCopyXML::SendCommandToService(RpcServiceCommand cmd, string paras[],int ParaNum,CRetMsgInfo result);
+	DWORD COsnMirrorCopyXML::FormatCdpSchedule(CDPSchedule schedule,string &retSchedule);
+	DWORD COsnMirrorCopyXML::AddCDPSchedule(char *SrcGUID,char *DesGUID,ULONG StartTime,ULONG IntervalMinutes,bool MirrorType);
+	DWORD COsnMirrorCopyXML::DelCDPSchedule(char *SrcGUID,bool MirrorType);
 	DWORD COsnMirrorCopyXML::QueryPortNameByIP(char *pInitiatorIP,char *pPortName,char **ppHBAName);
 	DWORD COsnMirrorCopyXML::ConnectiSCSIChannel(char *pTargetIP,char *pInitiatorIP,char *pIqn);
 	DWORD COsnMirrorCopyXML::GetSessionIDByIqn(ULONGLONG *pSessionID,ULONGLONG *pAdapterID,char *pIqn);
@@ -137,5 +141,4 @@ public:
 
 	vector<IWbemClassObject *> m_clslist;  
 };
-
 #endif

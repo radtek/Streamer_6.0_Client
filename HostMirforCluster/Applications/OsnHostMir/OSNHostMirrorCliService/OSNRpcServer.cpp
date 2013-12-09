@@ -19,6 +19,8 @@
 #include <Iphlpapi.h>
 #include <iostream>
 #include "Common.h"
+#include "WinUser.h"
+
 # pragma comment(lib, "Iphlpapi.lib")
 
 extern	COSNService			*pOSNService;
@@ -44,6 +46,7 @@ COSNRpcServer::COSNRpcServer() : COSNRpcSocket()
 	m_pMsgQueue          = NULL;
 	m_hMutex             = NULL;
 	m_hMutexFreshClient  = NULL;
+	m_MyEvent            = INVALID_HANDLE_VALUE;
 	m_HCSendThreadHandle = INVALID_HANDLE_VALUE;
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
@@ -67,6 +70,7 @@ COSNRpcServer::COSNRpcServer(UINT inPort) : COSNRpcSocket(inPort, true)
 	m_pMsgQueue          = NULL;
 	m_hMutex             = NULL;
 	m_hMutexFreshClient  = NULL;
+	m_MyEvent            = INVALID_HANDLE_VALUE;
 
 	ZeroMemory((PVOID)&m_sRecvMsg, OSNRPC_HCMAX_MSG_LEN);
 }
@@ -133,6 +137,12 @@ COSNRpcServer::~COSNRpcServer()
 		CloseHandle(m_startSocketThreadHandle);
 		m_startSocketThreadHandle = INVALID_HANDLE_VALUE;
 	}
+
+	if(m_MyEvent !=INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(m_MyEvent);
+		m_MyEvent = INVALID_HANDLE_VALUE;
+	}
 }
 
 DWORD WINAPI COSNRpcServer::OSNRpcMsgThread(void *pData)	
@@ -178,20 +188,26 @@ DWORD WINAPI COSNRpcServer::OSNRpcMsgThread(void *pData)
 
 	while (pOSNRpcServer->OSNRpcMsgState() == OSNRPC_RUNNING)
 	{
-		//fresh Client infomation 60per.
-		QueryPerformanceCounter(&m_liPerfNext);
-		if((((m_liPerfNext.QuadPart - m_liPerfFront.QuadPart) * 1000)/m_liPerfFreq.QuadPart) > 60000)
+		switch(WaitForSingleObject(pOSNRpcServer->m_MyEvent,1000))
 		{
-			WaitForSingleObject(pOSNRpcServer->m_hMutexFreshClient,INFINITE);
-			pOSNRpcServer->m_pCopyXML->InitializeMembers();
-			ReleaseMutex(pOSNRpcServer->m_hMutexFreshClient);
+		case WAIT_TIMEOUT:
+			{
+				//fresh Client infomation 10per.
+				QueryPerformanceCounter(&m_liPerfNext);
+				if((((m_liPerfNext.QuadPart - m_liPerfFront.QuadPart) * 1000)/m_liPerfFreq.QuadPart) > 10000)
+				{
+					WaitForSingleObject(pOSNRpcServer->m_hMutexFreshClient,INFINITE);
+					pOSNRpcServer->m_pCopyXML->InitializeMembers();
+					ReleaseMutex(pOSNRpcServer->m_hMutexFreshClient);
 
-			m_liPerfFront.QuadPart = m_liPerfNext.QuadPart;
+					m_liPerfFront.QuadPart = m_liPerfNext.QuadPart;
+				}
+			}
+			break;
 		}
 
 		if(pOSNRpcServer->m_pMsgQueue->Next() == NULL)
 		{
-			Sleep(200);
 			continue;
 		}
 
@@ -199,9 +215,9 @@ DWORD WINAPI COSNRpcServer::OSNRpcMsgThread(void *pData)
 		WaitForSingleObject(pOSNRpcServer->m_hMutex,INFINITE);
 		pCOSNMsgAccept = (COSNMsgAccept *)pOSNRpcServer->m_pMsgQueue->DeQueueHead();
 		ReleaseMutex(pOSNRpcServer->m_hMutex);
+
 		if(pCOSNMsgAccept == NULL)
 		{
-			Sleep(200);
 			continue;
 		}
 
@@ -304,6 +320,8 @@ bool COSNRpcServer::OSNRpcServerReceiveMsg(SOCKADDR_IN	&outSin,SOCKET *ConnectSo
 	WaitForSingleObject(m_hMutex,INFINITE);
 	m_pMsgQueue->InsertQTail(pCOSNMsgAccept);
 	ReleaseMutex(m_hMutex);
+
+	SetEvent(m_MyEvent);
 	return true;
 }
 
@@ -329,6 +347,13 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 	SOCKET   sockConn;   
 	
 	pOSNRpcServer->m_pMsgQueue          = new CQueue();
+
+	pOSNRpcServer->m_MyEvent = CreateEvent(NULL,false,false,NULL);
+	if(!pOSNRpcServer->m_MyEvent)
+	{
+		pOSNService->LogMessage("CreateEvent error");
+	}
+
 	while (pOSNRpcServer->OSNRpcState() == OSNRPC_RUNNING)
 	{
 		if(!pOSNRpcServer->m_startSocketSuccess)
@@ -348,11 +373,6 @@ DWORD WINAPI COSNRpcServer::OSNRpcListenThread(void *pData)
 		{
 			break;
 		}
-		else
-		{
-			Sleep(200);
-		}
-
 	}
 
 	pOSNService->DecrementThreadCount();
@@ -470,6 +490,21 @@ DWORD COSNRpcServer::OSNRpcHeartBeat(char *pBuffer,unsigned int Length)
 		char *pXMLText = (char*)((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
 		DWORD dw = OSNRpcGetServiceInfoSend((DWORD)pXMLText);
 	}
+	if(pMsgHeader->rtnStatus == ST_RES_CLIENT_UNPROTECT)
+	{
+		char pTargetIP[16];
+		m_pCopyXML->MoveNext(m_pCopyXML->m_TargetIPs,pTargetIP,sizeof(pTargetIP),' ');
+		m_pCopyXML->DisConnectiSCSIChannel(pTargetIP,m_pCopyXML->m_TargetIqn);
+
+		m_pCopyXML->m_IsProtected = false;
+		m_pCopyXML->SetRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","Protected",&m_pCopyXML->m_IsProtected,BoolKey);
+
+		memset(m_pCopyXML->m_ServerIP,0,strlen(m_pCopyXML->m_ServerIP));
+		m_pCopyXML->DelRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerIP");
+
+		memset(m_pCopyXML->m_ServerID,0,64);
+		m_pCopyXML->DelRegKey("SYSTEM\\CurrentControlSet\\Services\\OSNHCService","ServerID");
+	}
 		
 	shutdown(sock,SD_BOTH);
 	closesocket(sock);
@@ -511,8 +546,6 @@ DWORD WINAPI COSNRpcServer:: OSNHCSendThread(void *pData)
 
 		if(pOSNRpcServer->m_pCopyXML != NULL)
 		{
-			LOG(INFO) << "";
-
 			COSNxml *pXMLTemp = new COSNxml();
 			pXMLTemp->CreateXMLFile("Streamer");
 
@@ -640,99 +673,72 @@ void COSNRpcServer::StopListenThread()
 	m_handleThread	= INVALID_HANDLE_VALUE;
 }
 
-DWORD COSNRpcServer::OSNRpcGetSysVersion(char *pSysVersion)
+DWORD COSNRpcServer::OSNRpcGetSysVersion(string *pSysVersion)
 {
+	char pTemp[256];
+	DWORD dw = m_pCopyXML->QueryRegKey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion","ProductName",pTemp,sizeof(pTemp),StringKey);
+	if(dw != ERROR_SUCCESS)
+	{
+		return EXIT_FAILURE;
+	}
+	*pSysVersion = pTemp;
+
 	OSVERSIONINFOEX osver;  
 	osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX); 
 	if (!GetVersionEx((LPOSVERSIONINFOA)&osver))  
-	{  
 		return EXIT_FAILURE;  
-	}
+
+	printf("dwMajorVersion:%d,dwMinorVersion:%d,wSuiteMask:%d\n",osver.dwMajorVersion,osver.dwMinorVersion,osver.wSuiteMask);
 	switch(osver.dwMajorVersion)
-	{
-	case 5:
-		{
-			switch(osver.dwMinorVersion)
-			{
-			case 0:
-				{
-					strcpy(pSysVersion,"Windows 2000");
-				}
-				break;
-			case 1:
-				{
-					strcpy(pSysVersion,"Windows XP");
-				}
-				break;
-			case 2:
-				{
-					strcpy(pSysVersion,"Windows Server 2003");
-				}
-				break;
-			}
-		}
-		break;
-	case 6:
-		{
-			switch(osver.dwMinorVersion)
-			{
-			case 0:
-				{
-					if(osver.wProductType != VER_NT_WORKSTATION)
-					{
-						strcpy(pSysVersion,"Windows Server 2008");
-					}
-					else
-					{
-						strcpy(pSysVersion,"Windows Vista");
-					}
-				}
-				break;
-			case 1:
-				{
-					if(osver.wProductType == VER_NT_WORKSTATION)
-					{
-						strcpy(pSysVersion,"Windows 7");
-					}
-					else
-					{
-						strcpy(pSysVersion,"Windows Server 2008 R2");
-					}
-				}
-				break;
-			case 2:
-				{
-					if(osver.wProductType == VER_NT_WORKSTATION)
-					{
-						strcpy(pSysVersion,"Windows 8");
-					}
-					else
-					{
-						strcpy(pSysVersion,"Windows Server 2012");
-					}
-				}
-				break;
-			case 3:
-				{
-					if(osver.wProductType == VER_NT_WORKSTATION)
-					{
-						strcpy(pSysVersion,"Windows 8.1 Preview");
-					}
-					else
-					{
-						strcpy(pSysVersion,"Windows Server 2012 R2 Preview");
-					}
-				}
-				break;
-			}
-		}
-		break;
-	default:
-		{
-			strcpy(pSysVersion,"Unknow System Operating Version");
-		}
-		break;
+	{                 
+	case 5: 
+		switch(osver.dwMinorVersion)
+		{ 
+		case 0:           
+			if(osver.wSuiteMask & VER_SUITE_ENTERPRISE) 
+				*pSysVersion += " Advanced Server";
+			else if(osver.wSuiteMask & VER_SUITE_DATACENTER)
+				*pSysVersion += " Datacenter Server";
+			break; 
+		case 1:                  //Windows XP 
+			if(osver.wSuiteMask & VER_SUITE_EMBEDDEDNT) 
+				*pSysVersion += " Embedded"; 
+			else if(osver.wSuiteMask & VER_SUITE_PERSONAL) 
+				*pSysVersion += " Home Edition"; 
+			else 
+				*pSysVersion += " Professional"; 
+			break; 
+		case 2: 
+			if(GetSystemMetrics(SM_SERVERR2)==0 && osver.wSuiteMask & VER_SUITE_BLADE)  //Windows Server 2003 
+				*pSysVersion += " Web Edition"; 
+			else if(GetSystemMetrics(SM_SERVERR2)==0 && osver.wSuiteMask & VER_SUITE_COMPUTE_SERVER) 
+				*pSysVersion += " Compute Cluster Edition"; 
+			else if(GetSystemMetrics(SM_SERVERR2)==0 && osver.wSuiteMask & VER_SUITE_STORAGE_SERVER) 
+				*pSysVersion += " Storage Server"; 
+			else if(GetSystemMetrics(SM_SERVERR2)==0 && osver.wSuiteMask & VER_SUITE_DATACENTER) 
+				*pSysVersion += " Datacenter Edition"; 
+			else if(GetSystemMetrics(SM_SERVERR2)==0 && osver.wSuiteMask & VER_SUITE_ENTERPRISE) 
+				*pSysVersion += " Enterprise Edition"; 
+			else if(GetSystemMetrics(SM_SERVERR2)!=0 && osver.wSuiteMask & VER_SUITE_STORAGE_SERVER)  
+				*pSysVersion += " Storage Server"; 
+			break; 
+		} 
+		break; 
+	case 6: 
+		switch(osver.dwMinorVersion)
+		{ 
+		case 0: 
+			if(osver.wProductType!=VER_NT_WORKSTATION && osver.wSuiteMask & VER_SUITE_DATACENTER)   
+				*pSysVersion += " Datacenter"; 
+			else if(osver.wProductType!=VER_NT_WORKSTATION && osver.wSuiteMask & VER_SUITE_ENTERPRISE) 
+				*pSysVersion += " Enterprise"; 
+			else if(osver.wProductType==VER_NT_WORKSTATION && osver.wSuiteMask & VER_SUITE_PERSONAL)  //Windows Vista
+				*pSysVersion += " Home Basic"; 
+			break; 
+		} 
+		break; 
 	}
+	*pSysVersion = *pSysVersion + " " + osver.szCSDVersion;
 
 	return EXIT_SUCCESS;
 }
@@ -799,7 +805,7 @@ char * COSNRpcServer::OSNRpcGetIPsInfo()
 	return IPlist;
 }
 
-DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,char *pSysVersion)
+DWORD COSNRpcServer::OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,string *pSysVersion)
 {
 	char                          *phostName = NULL;
 	DWORD                         dw;
@@ -982,6 +988,101 @@ DWORD COSNRpcServer::OSNRpcGetInitMirrorRate(DWORD pXML)
 	delete(pDes);
 
 	return 0;//m_pCopyXML->GetInitMirrorRate(pSrc,pDes,MirrorTypeB);
+}
+
+DWORD COSNRpcServer::OSNRpcRemoveCDPSchedule(DWORD pXML)
+{
+	DWORD   dw = 0;
+	char    SrcGUID[64];
+	bool    MirrorTypeB;
+	char    MirrorTypeC[5];
+	wchar_t pUnicode[256];
+
+	LOG(INFO) << "OSNRpcGetCDPSchedule start.";
+
+	memset(pUnicode,0,256*sizeof(wchar_t));
+
+	COSNxml *pXMLTemp = new COSNxml();
+	
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","SrcGUID",SrcGUID,sizeof(SrcGUID));
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","Type",MirrorTypeC,5);
+		if(strcmp(MirrorTypeC,"0") == 0)
+		{
+			MirrorTypeB = 0;//volume
+		}
+		else
+		{
+			MirrorTypeB = 1;
+		}
+
+		dw = m_pCopyXML->DelCDPSchedule(SrcGUID,MirrorTypeB);
+	}
+	else
+	{
+		delete(pXMLTemp);
+		return EXIT_FAILURE;
+	}
+
+	return dw;
+}
+
+DWORD COSNRpcServer::OSNRpcGetCDPSchedule(DWORD pXML)
+{
+	DWORD   dw = 0;
+	char    SrcGUID[64];
+	char    DesGUID[64];
+	bool    MirrorTypeB;
+	char    MirrorTypeC[5];
+	ULONG   UStartTime = 0;
+	ULONG   UIntervalMinutes = 0;
+	char    CStartTime[10];
+	char    CIntervalMinutes[10];
+	wchar_t pUnicode[256];
+
+	LOG(INFO) << "OSNRpcGetCDPSchedule start.";
+
+	memset(pUnicode,0,256*sizeof(wchar_t));
+
+	COSNxml *pXMLTemp = new COSNxml();
+	
+	if(pXMLTemp->UTF_8ToUnicode((char *)pXML,pUnicode))
+	{
+		pXMLTemp->LoadFile(pUnicode);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","SrcGUID",SrcGUID,sizeof(SrcGUID));
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","DesGUID",DesGUID,sizeof(DesGUID));
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup/Schedule","StartTime",CStartTime,sizeof(CStartTime));
+		UStartTime = atoi(CStartTime);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup/Schedule","IntervalMinutes",CIntervalMinutes,sizeof(CIntervalMinutes));
+		UIntervalMinutes = atoi(CIntervalMinutes);
+
+		pXMLTemp->GetXMLNodeAttribute("Streamer/Backup","Type",MirrorTypeC,5);
+		if(strcmp(MirrorTypeC,"0") == 0)
+		{
+			MirrorTypeB = 0;//volume
+		}
+		else
+		{
+			MirrorTypeB = 1;
+		}
+
+		dw = m_pCopyXML->AddCDPSchedule(SrcGUID,DesGUID,UStartTime,UIntervalMinutes,MirrorTypeB);
+	}
+	else
+	{
+		delete(pXMLTemp);
+		return EXIT_FAILURE;
+	}
+
+	return dw;
 }
 
 DWORD COSNRpcServer::OSNRpcGetiSCSIChannel(DWORD pXML)
@@ -1227,18 +1328,18 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 
 			COSNxml *pXMLTemp = new COSNxml();
 			pXMLTemp->CreateXMLFile("Streamer");
-			char hostname[128],SysVersion[64],*IPs = NULL; 
-
+			char hostname[128],*IPs = NULL; 
+			string SysVersion;
 			if(m_pCopyXML->m_IsProtected == false)
 			{
-				dw = OSNRpcGetBasicInfo(hostname,&IPs,SysVersion);
+				dw = OSNRpcGetBasicInfo(hostname,&IPs,&SysVersion);
 				if(EXIT_SUCCESS == dw)
 				{
 					pXMLTemp->AddXMLElement("Client");
 					pXMLTemp->AddXMLAttribute("Client","HostName",hostname);
 					pXMLTemp->AddXMLAttribute("Client","IPs",IPs);
 					pXMLTemp->AddXMLAttribute("Client","SystemType",SYS_TYPE_WINDOWS);
-					pXMLTemp->AddXMLAttribute("Client","SysVersion",SysVersion);
+					pXMLTemp->AddXMLAttribute("Client","SysVersion",(char *)SysVersion.c_str());
 					pXMLTemp->AddXMLAttribute("Client","ID",m_pCopyXML->m_ClientID);
 
 					DWORD size = pXMLTemp->GetXMLText(pXMLText);
@@ -1464,6 +1565,50 @@ bool COSNRpcServer::OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader)
 			{
 				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
 				LOG(INFO) << "ST_OP_ESTABLISH_CHANNELS CMD failed(OSNRpcGetiSCSIChannel)!";
+			}
+			delete(pXMLTemp);
+		}
+		break;
+
+	case OSN_REMOTE_CMD_SETCDPSCHEDULE:
+		{
+			LOG(INFO) << "OSN_REMOTE_CMD_SETCDPSCHEDULE CMD start.";
+
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->CreateXMLFile("Streamer");
+
+			dw = OSNRpcGetCDPSchedule((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+			if(EXIT_SUCCESS == dw)
+			{
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+				LOG(INFO) << "OSN_REMOTE_CMD_SETCDPSCHEDULE CMD successful!";
+			}
+			else
+			{
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+				LOG(INFO) << "OSN_REMOTE_CMD_SETCDPSCHEDULE CMD failed(OSNRpcGetCDPSchedule)!";
+			}
+			delete(pXMLTemp);
+		}
+		break;
+
+	case OSN_REMOTE_CMD_REMOVEPROTECTTOCLIENT:
+		{
+			LOG(INFO) << "OSN_REMOTE_CMD_REMOVEPROTECTTOCLIENT CMD start.";
+
+			COSNxml *pXMLTemp = new COSNxml();
+			pXMLTemp->CreateXMLFile("Streamer");
+
+			dw = OSNRpcRemoveCDPSchedule((DWORD)pMsgHeader + OSNRPC_HCMSGHEAD_LEN);
+			if(EXIT_SUCCESS == dw)
+			{
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_SUCCESS,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+				LOG(INFO) << "OSN_REMOTE_CMD_REMOVEPROTECTTOCLIENT CMD successful!";
+			}
+			else
+			{
+				OSNRpcRetMsgHeader(pMsgHeader,ST_RES_FAILED,OSN_MSGHEAD_PARSE_XML,OSN_MSGHEAD_CMD_FLAG_RESPONSE,0);
+				LOG(INFO) << "OSN_REMOTE_CMD_REMOVEPROTECTTOCLIENT CMD failed(OSNRpcRemoveCDPSchedule)!";
 			}
 			delete(pXMLTemp);
 		}

@@ -1,0 +1,104 @@
+  HostmirrorScheduleService.HostmirrorScheduleServiceWinService.resources - Embedded, ContainedInManifestFile, 
+  HostmirrorScheduleService.ProjectInstaller.resources - Embedded, ContainedInManifestFile, 
+ImageRuntimeVersion: v4.0.30319
+Assembly HostmirrorScheduleService, Version=1.0.*, Culture=Invariant Language (Invariant Country): 
+	hash=SHA1, flags=PublicKey
+Assembly mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly OSNRpcCommonCfg, Version=5.0.*, Culture=Invariant Language (Invariant Country): 
+	hash=None, flags=None
+Assembly System.Configuration.Install, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
+	hash=None, flags=None
+Assembly System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Management, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
+	hash=None, flags=None
+Assembly System.ServiceProcess, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
+	hash=None, flags=None
+Assembly System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly Microsoft.VisualC, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
+	hash=None, flags=None
+Class HostmirrorScheduleService.CEventLog: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Methods:
+    OSNWriteEventLog(String, EventLogEntryType, Int32): PrivateScope, Public, Static, HideBySig
+Class HostmirrorScheduleService.OSNAccount: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String Admin : Public
+    System.String Pass : Public
+Class HostmirrorScheduleService.DatabaseInformation: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(HostmirrorScheduleService.DATABASE_TYPE, Boolean, System.String, HostmirrorScheduleService.OSNAccount, Boolean): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    Boolean IsHave : Public
+    HostmirrorScheduleService.DATABASE_TYPE Type : Public
+    System.String volumeLabel : Public
+    HostmirrorScheduleService.OSNAccount AdminAccount : Public
+    Boolean IsForceCDP : Public
+    System.String Instance : Public
+Class HostmirrorScheduleService.CHostMirrorCDPScheduleThread: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(System.Threading.Mutex, System.Threading.Mutex, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.Threading.ManualResetEvent m_ScheduleDeleteEvent : Public
+    System.String m_Guid : Public
+  Methods:
+    OsnXmlSerialize(Type, Object): PrivateScope, Public, HideBySig
+    OsnWeekOfMonth(DateTime, Int32): PrivateScope, Public, HideBySig
+    GetCurrentOSVersion(): PrivateScope, Public, HideBySig
+    OnCDPScheduleMonthTimerElapsed(Object, ElapsedEventArgs): PrivateScope, Public, HideBySig
+    OnCDPScheduleWeekTimerElapsed(Object, ElapsedEventArgs): PrivateScope, Public, HideBySig
+    OnCDPScheduleDayTimerElapsed(Object, ElapsedEventArgs): PrivateScope, Public, HideBySig
+    OnCDPScheduleMinuteTimerElapsed(Object, ElapsedEventArgs): PrivateScope, Public, HideBySig
+    GetIntervalInMinute(CCDPStartTime): PrivateScope, Public, HideBySig
+    CDPSchedule(): PrivateScope, Public, HideBySig
+Class HostmirrorScheduleService.MainProcess: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(System.Collections.Generic.List`1[HostmirrorScheduleService.CHostMirrorCDPScheduleThread]): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.Threading.Mutex m_CDPScheduleXmlMutex : Public
+    System.Threading.Mutex m_Mutex : Public
+    System.Threading.Mutex m_RegMutex : Public
+    System.Collections.Generic.List`1[HostmirrorScheduleService.CHostMirrorCDPScheduleThread] m_CDPScheduleList : Public
+    System.Threading.ManualResetEvent m_ScheduleDeleteEvent : Public, Static
+  Methods:
+    processMsg(Socket, CSocketMsgInfo): PrivateScope, Public, HideBySig
+    OSNHostMirrorCreateCDPShedule(Socket, CSocketMsgInfo): PrivateScope, Public, HideBySig
+    OSNHostMirrorDeleteCDPShedule(Socket, CSocketMsgInfo): PrivateScope, Public, HideBySig
+    OsnHostMirrorGetCDPSchedule(Socket, CSocketMsgInfo): PrivateScope, Public, HideBySig
+    GetCDPScheduleFromList(String): PrivateScope, Public, HideBySig
+    OsnNewCDPScheduleThread(String, String): PrivateScope, Public, HideBySig
+    CheckVolAndDisk(String): PrivateScope, Public, HideBySig
+    GetSignatureByLabel(String): PrivateScope, Public, HideBySig
+    GetVolumeLabelBySignature(String): PrivateScope, Public, HideBySig
+    GetSignatureByIndex(Int32): PrivateScope, Public, HideBySig
+    GetDiskIndexBySignature(String): PrivateScope, Public, HideBySig
+    DeleteCDPScheduleinList(String): PrivateScope, Public, HideBySig
+    OsnXmlSerialize(Type, Object): PrivateScope, Public, HideBySig
+    OsnRespondSocket(Socket, CRetMsgInfo): PrivateScope, Public, HideBySig
+    GetStringDayOfWeek(Int32): PrivateScope, Public, HideBySig
+    GetStringDayArrayOfWeek(String): PrivateScope, Public, HideBySig
+Class HostmirrorScheduleService.HostmirrorScheduleServiceWinService: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.ServiceProcess.ServiceBase
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Methods:
+    ListenProcess(): PrivateScope, Public, HideBySig
+    OnAcceptSocketCallback(IAsyncResult): PrivateScope, Public, HideBySig
+    GetCDPScheduleFromList(String): PrivateScope, Public, HideBySig
+    OsnNewCDPScheduleThread(String, String): PrivateScope, Public, HideBySig
+Class HostmirrorScheduleService.HostmirrorScheduleServiceWinService+OsnListenerDelegate: AutoLayout, AnsiClass, Class, NestedPublic, Sealed, BeforeFieldInit
+  :System.MulticastDelegate
+    Void .ctor(System.Object, IntPtr): PrivateScope, Public, SpecialName, RTSpecialName
+  Methods:
+    Invoke(): PrivateScope, Public, Final, Virtual, VtableLayoutMask
+    BeginInvoke(AsyncCallback, Object): PrivateScope, Public, Final, Virtual, VtableLayoutMask
+    EndInvoke(IAsyncResult): PrivateScope, Public, Final, Virtual, VtableLayoutMask
+Class HostmirrorScheduleService.ProjectInstaller: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Configuration.Install.Installer
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName

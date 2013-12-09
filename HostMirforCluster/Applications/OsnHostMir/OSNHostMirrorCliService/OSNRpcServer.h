@@ -50,8 +50,8 @@ public:
 	//stream
 	bool OSNRpcIoctlDispatch(PHC_MESSAGE_HEADER	pMsgHeader);
 	inline void  COSNRpcServer::OSNRpcRetMsgHeader(PHC_MESSAGE_HEADER pMsgHeader,unsigned short rtnStatus,BYTE parseType,unsigned short flag,unsigned int dataLength);
-	DWORD OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,char *SysVersion);
-	DWORD OSNRpcGetSysVersion(char *pSysVersion);
+	DWORD OSNRpcGetBasicInfo(char *pHostname,char **pIpAddress,string *SysVersion);
+	DWORD OSNRpcGetSysVersion(string *pSysVersion);
 	DWORD OSNRpcGetServiceInfo(DWORD pXML);
 	DWORD OSNRpcGetServiceInfoSend(DWORD pXML);
 	DWORD OSNRpcSetMirror(DWORD pXML);
@@ -59,6 +59,8 @@ public:
 	DWORD OSNRpcInitMirror(DWORD pXML);
 	DWORD OSNRpcGetInitMirrorRate(DWORD pXML);
 	DWORD OSNRpcGetiSCSIChannel(DWORD pXML);
+	DWORD OSNRpcGetCDPSchedule(DWORD pXML);
+	DWORD OSNRpcRemoveCDPSchedule(DWORD pXML);
 	DWORD OSNRpcSetServiceInfo(DWORD pXML);
 	DWORD OSNRpcGetClientInfo(COSNxml *m_pTempXML);
 	DWORD OSNRpcHeartBeat(char *pBuffer,unsigned int Length);
@@ -88,7 +90,8 @@ private:
 	CQueue            *m_pMsgQueue;
 	HANDLE            m_hMutex;
 	HANDLE            m_hMutexFreshClient;
-	DWORD             m_nError;          
+	DWORD             m_nError; 
+	HANDLE            m_MyEvent;
 };
 
 class COSNMsgAccept

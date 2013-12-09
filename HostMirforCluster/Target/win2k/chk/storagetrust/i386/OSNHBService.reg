@@ -7,9 +7,9 @@ REGEDIT4
 "DisplayName"="Storage Trust OSN HeartBeat Service"
 "ObjectName"="LocalSystem"
 
-[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\OSNCliService\Parameters]
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\OSNHBService\Parameters]
 
 
-[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\Application\OSNCliService]
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\Application\OSNHBService]
 "EventMessageFile"=""
 "TypesSupported"=dword:EVENTLOG_ERROR_TYPE|EVENTLOG_WARNING_TYPE|EVENTLOG_INFORMATION_TYPE

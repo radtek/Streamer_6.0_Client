@@ -14,11 +14,11 @@
 #define VER_LEGALTRADEMARKS_STR    "OsnSolution (R) is a registered trademark of EIM Corporation."
 
 
-#define VER_PRODUCTBUILD	    30
+#define VER_PRODUCTBUILD	    1
 
-#define VER_PRODUCTBUILD_QFE 		6008
+#define VER_PRODUCTBUILD_QFE 		1
 
-#define VER_PRODUCTMAJORVERSION     5
+#define VER_PRODUCTMAJORVERSION     6
 
 #define VER_PRODUCTMINORVERSION    0
 

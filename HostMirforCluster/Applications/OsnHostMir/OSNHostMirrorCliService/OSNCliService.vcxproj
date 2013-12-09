@@ -190,7 +190,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\common;$(IntDir);$(IntDir)..\Common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WINVER=0x500;_DEBUG;WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WINVER=0x501;_DEBUG;WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>
@@ -352,6 +352,7 @@
     <ClCompile Include="OSNXml.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CDPSchedule.h" />
     <ClInclude Include="Configure.h" />
     <ClInclude Include="Globallist.h" />
     <ClInclude Include="MirrorUIConfigure.h" />

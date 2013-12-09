@@ -1,0 +1,332 @@
+  OSNRpcCommonCfg.Properties.Resources.resources - Embedded, ContainedInManifestFile, 
+ImageRuntimeVersion: v4.0.30319
+Assembly OSNRpcCommonCfg, Version=5.0.*, Culture=Invariant Language (Invariant Country): 
+	hash=SHA1, flags=PublicKey
+Assembly mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Struct OSNRpcCommonCfg.DATABASE_TYPE: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.DATABASE_TYPE ORACLE = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DATABASE_TYPE SQLSERVER = 1 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DATABASE_TYPE SYBASE = 2 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DATABASE_TYPE DOMINO = 3 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DATABASE_TYPE EXCHANGE = 4 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DATABASE_TYPE MYSQL = 5 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DATABASE_TYPE INFORMIX = 6 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.MIRROR_STATUS: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.MIRROR_STATUS MIRROR_STATE_UP = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.MIRROR_STATUS MIRROR_STATE_LOCAL_DOWN = 1 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.MIRROR_STATUS MIRROR_STATE_MIRROR_DOWN = 2 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.MIRROR_STATUS MIRROR_STATE_IN_RECOVERY = 3 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.MIRROR_STATUS MIRROR_STATE_DISABLED = 4 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.MIRROR_STATUS MIRROR_STATE_BOTH_DOWN = 5 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.MIRROR_STATUS MIRROR_STATE_NEW = 6 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg._REPLICATION_MODE: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg._REPLICATION_MODE MODE_ASYNCH = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg._REPLICATION_MODE MODE_SYNCH = 1 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg._REPLICATION_MODE MODE_AUTO = 2 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.CDP_SCHEDULE_MODE: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.CDP_SCHEDULE_MODE MODE_MONTH = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CDP_SCHEDULE_MODE MODE_WEEK = 1 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CDP_SCHEDULE_MODE MODE_DAY = 2 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CDP_SCHEDULE_MODE MODE_MINUTE = 3 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CDP_SCHEDULE_MODE MODE_NONE = 4 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.DiskState: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.DiskState NONE = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DiskState ININIT = 1 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DiskState OFFLINE = 2 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.DiskState ONLINE = 3 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.ServerState: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.ServerState SERVER_OFFLINE = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.ServerState SERVER_ONLINE = 1 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.StartServiceResult: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.StartServiceResult Success = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.StartServiceResult AccessDenied = 2 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.StartServiceResult ServiceAlreadyRunning = 10 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.StartServiceResult ServiceDisabled = 14 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.RepServiceStatus: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.RepServiceStatus RS_SUCCESS = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_NOT_FIND_TARGET = 704643073 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_BACKUP_EXISTED = 704643074 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_NOT_FIND_DISK = 704643075 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_ADD_BACKUP = 704643076 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_SET_DEVICE_ACTIVE = 704643077 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_SET_VOLUME_ACTIVE = 704643078 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_DISK_INIT_STATUS = 704643079 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_DISK_MIRROR_STATUS = 704643080 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_VOLUME_INIT_STATUS = 704643081 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_VOLUME_MIRROR_STATUS = 704643082 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_BACKUP_NOT_EXISTED = 704643083 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_UNSET_DEVICE_ACTIVE = 704643084 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_UNSET_VOLUME_ACTIVE = 704643085 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_REMOVE_BACKUP = 704643086 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_BACKUP_DISABLED = 704643087 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_INIT_DISK_BACKUP = 704643088 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_INIT_VOLUME_BACKUP = 704643089 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_CANCEL_INIT_DISK_BACKUP = 704643090 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_CANCEL_INIT_VOLUME_BACKUP = 704643091 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_OPEN_REPLICATOR_REGKEY = 704643092 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_OPEN_OSNSERVICE_PARA_REGKEY = 704643093 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_SET_SAME_REPLICATION_MODE = 704643094 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_CANNOT_SET_SYNCH_MODE_BACKUP_EXISTED = 704643095 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_LOG_VOLUME_DEVICE_NAME = 704643096 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_LOG_DEVICE_BACKUPED = 704643097 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_SET_REPLICATION_MODE = 704643098 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_SYSTEM_WWN = 704643099 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_NOT_FIND_CONFIG_FILE = 704643100 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_FILE_TARGET_LINE_ILLEGAL_FORMAT = 704643101 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_FILE_BACKUP_LINE_ILLEGAL_FORMAT = 704643102 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_DELETE_SERVER_BACKUP_EXISTED = 704643103 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_REMOVE_TARGET_INFO = 704643104 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_FIND_TARGET = 704643105 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_ADD_TARGET_INFO = 704643106 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_VOLUME_ID = 704643107 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_VOLUME_SIZE = 704643108 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_CATCH_EXCEPTION = 704643109 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_SUCCESS_START_CREATE_CDP = 704643110 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_SUCCESS_FINISH_CREATE_CDP = 704643111 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_NOT_FIND_RAWPARTITION = 704643112 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_FILE_CREATE_CDP = 704643113 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_SET_ASYNCH_LOG_DEVICE_BACKUP_EXISTED = 704643114 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_BACKUP_INITIALIZE = 704643115 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_DISK_RECOVERY_STATUS = 704643116 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_API_GET_VOLUME_RECOVERY_STATUS = 704643117 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RepServiceStatus RS_ERROR_START_CREATE_CDP = 704643118 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.RpcServiceCommand: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_GET_DISKLIST = 0 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_CREATE_BACKUPINFO = 1 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_DELETE_BACKUPINFO = 2 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_GET_BACKUP_STATUS = 3 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_INITIALIZE_BACKUP = 4 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_CANCEL_INITI_BACKUP = 5 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_GET_REPLICATE_MODE = 6 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_SET_REPLICATE_MODE = 7 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_GET_INITIATOR_INFO = 8 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_READ_CONFIG_FILE = 9 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_DELETE_TARGET_INFO = 10 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_CREATE_CDP = 16 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_ADD_TARGET_INFO = 17 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_CREATE_CDP_SCHEDULE = 18 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_DELETE_CDP_SCHEDULE = 19 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_SET_STATUSERVICEIP = 20 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_GET_RAWPARTITION = 21 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_GET_CDP_SCHEDULE = 22 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_CREATE_TIMECDP = 23 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_DELETE_MAP = 24 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_CREATE_GROUP_CDP_SCHEDULE = 24 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_VIEW_GROUP_CDP_SCHEDULE = 25 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.RpcServiceCommand OSN_RC_CMD_DELETE_GROUP_CDP_SCHEDULE = 26 : Public, Static, Literal, HasDefault
+Struct OSNRpcCommonCfg.CSocketPort: AutoLayout, AnsiClass, Class, Public, Sealed
+  :System.Enum
+  Fields:
+    Int32 value__ : Public, SpecialName, RTSpecialName
+    OSNRpcCommonCfg.CSocketPort OSNRPC_SOCKET_CDP_STATUS_PORT = 59188 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CSocketPort OSNRPC_SOCKET_BACKUP_STATUS_PORT = 59189 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CSocketPort OSNRPC_SOCKET_CLIENT_LISTEN_PORT = 59190 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CSocketPort OSNRPC_SEND_BACKUP_STATUS_INTERVAL = 20000 : Public, Static, Literal, HasDefault
+    OSNRpcCommonCfg.CSocketPort OSNSTORE_SOCKET_CLIENT_LISTEN_PORT = 59191 : Public, Static, Literal, HasDefault
+Class OSNRpcCommonCfg.CBackupInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_Guid : Public
+    System.String m_TargetName : Public
+    System.String m_BackupVolumeName : Public
+    System.String m_BackupVolumeID : Public
+Class OSNRpcCommonCfg.CVolumeInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_VolumeLabel : Public
+Class OSNRpcCommonCfg.CDiskInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(UInt32, UInt64, System.Collections.Generic.List`1[OSNRpcCommonCfg.CVolumeInfo], System.String, Boolean): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    UInt32 m_DiskIndex : Public
+    UInt64 m_DiskSize : Public
+    OSNRpcCommonCfg.DiskState m_DiskState : Public
+    System.Collections.Generic.List`1[OSNRpcCommonCfg.CVolumeInfo] m_VolumeList : Public
+    System.String m_Guid : Public
+    Boolean m_IsDisk : Public
+Class OSNRpcCommonCfg.CRawPartition: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, UInt64): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_RawPartitionName : Public
+    UInt64 m_VolumeSize : Public
+Class OSNRpcCommonCfg.CInitiator: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String, System.String, System.String, UInt32, System.Collections.Generic.List`1[OSNRpcCommonCfg.CDiskInfo], System.Collections.Generic.List`1[OSNRpcCommonCfg.CBackupInfo], System.Collections.Generic.List`1[OSNRpcCommonCfg.CTarget], System.Collections.Generic.List`1[System.String]): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_InitiatorName : Public
+    System.String m_InitiatorWWN : Public
+    System.String m_LocalIPAddress : Public
+    System.String m_InitiatorType : Public
+    System.String m_InitiatorOSType : Public
+    UInt32 m_InstallType : Public
+    System.Collections.Generic.List`1[OSNRpcCommonCfg.CDiskInfo] m_DiskList : Public
+    System.Collections.Generic.List`1[OSNRpcCommonCfg.CBackupInfo] m_BackupList : Public
+    System.Collections.Generic.List`1[OSNRpcCommonCfg.CTarget] m_TargetList : Public
+    System.Collections.Generic.List`1[System.String] m_LocalIPList : Public
+Class OSNRpcCommonCfg.CMapServerInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_ServerIP : Public
+    System.String m_VolumeID : Public
+    System.String m_VolumeName : Public
+Class OSNRpcCommonCfg.CTarget: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_TargetName : Public
+    System.String m_TargetIPAddress : Public
+    System.String m_LocalIPAddress : Public
+    OSNRpcCommonCfg.ServerState m_ServerState : Public
+  Methods:
+    SetServerState(ServerState): PrivateScope, Public, HideBySig
+Class OSNRpcCommonCfg.CRetMsgInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(OSNRpcCommonCfg.RepServiceStatus, UInt32, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    OSNRpcCommonCfg.RepServiceStatus m_RepServiceStatus : Public
+    System.String m_RetMsgInfo : Public
+    UInt32 m_ErrorCode : Public
+Class OSNRpcCommonCfg.CSocketMsgInfo: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(OSNRpcCommonCfg.RpcServiceCommand, UInt32, System.String[]): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    OSNRpcCommonCfg.RpcServiceCommand m_SendCommand : Public
+    UInt32 m_ParaNum : Public
+    System.String[] m_StrParaList : Public
+Class OSNRpcCommonCfg.CBackupState: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, UInt32, UInt32, OSNRpcCommonCfg.MIRROR_STATUS): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_Guid : Public
+    System.String m_DesVolumeID : Public
+    UInt32 m_InitInfo : Public
+    UInt32 m_RecoveryInfo : Public
+    OSNRpcCommonCfg.MIRROR_STATUS m_MirrorState : Public
+Class OSNRpcCommonCfg.CReplicationMode: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(UInt32, OSNRpcCommonCfg._REPLICATION_MODE, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    UInt32 m_InstallType : Public
+    OSNRpcCommonCfg._REPLICATION_MODE m_ReplicateMode : Public
+    System.String m_LogDeviceLabel : Public
+    System.String m_LogDeviceDosName : Public
+Class OSNRpcCommonCfg.CCDPStartTime: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String, System.String, System.String, System.String, System.String, System.String, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_Year : Public
+    System.String m_Month : Public
+    System.String m_Day : Public
+    System.String m_WeekNum : Public
+    System.String m_DayOfWeek : Public
+    System.String m_Hour : Public
+    System.String m_Minute : Public
+    System.String m_Second : Public
+    System.String m_IntervalDays : Public
+    System.String m_IntervalMinutes : Public
+Class OSNRpcCommonCfg.CCDPStopTime: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String, System.String, System.String, System.String, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_Year : Public
+    System.String m_Month : Public
+    System.String m_Day : Public
+    System.String m_WeekNum : Public
+    System.String m_DayOfWeek : Public
+    System.String m_Hour : Public
+    System.String m_Minute : Public
+    System.String m_Second : Public
+Class OSNRpcCommonCfg.CCDPSchedule: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String, System.String, OSNRpcCommonCfg.CCDPStartTime, OSNRpcCommonCfg.CCDPStopTime, Int16): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_TargetName : Public
+    System.String m_TargetIP : Public
+    System.String m_TargetVolName : Public
+    System.String m_Guid : Public
+    OSNRpcCommonCfg.CCDPStartTime m_StartTime : Public
+    OSNRpcCommonCfg.CCDPStopTime m_StopTime : Public
+    Int16 m_Mode : Public
+Class OSNRpcCommonCfg.CMapCDPSchedule: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String, OSNRpcCommonCfg.CCDPStartTime, OSNRpcCommonCfg.CCDPStopTime, Int16): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_CDPVolumeName : Public
+    System.String m_ServerIP : Public
+    System.String m_VolumeID : Public
+    OSNRpcCommonCfg.CCDPStartTime m_StartTime : Public
+    OSNRpcCommonCfg.CCDPStopTime m_StopTime : Public
+    Int16 m_Mode : Public
+Class OSNRpcCommonCfg.CHostMirrorCDPSchedule: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, OSNRpcCommonCfg.CCDPStartTime, OSNRpcCommonCfg.CCDPStopTime, Int16): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_Guid : Public
+    OSNRpcCommonCfg.CCDPStartTime m_StartTime : Public
+    OSNRpcCommonCfg.CCDPStopTime m_StopTime : Public
+    Int16 m_Mode : Public
+Class OSNRpcCommonCfg.CGroupCDPSchedule: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, OSNRpcCommonCfg.CCDPStartTime, OSNRpcCommonCfg.CCDPStopTime, Int16): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String m_GroupName : Public
+    OSNRpcCommonCfg.CCDPStartTime m_StartTime : Public
+    OSNRpcCommonCfg.CCDPStopTime m_StopTime : Public
+    Int16 m_Mode : Public
+Class OSNRpcCommonCfg.OSNAccount: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(System.String, System.String, System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String Admin : Public
+    System.String Pass : Public
+    System.String InstanceDB : Public
+Class OSNRpcCommonCfg.OSNEncryAndDecry: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Methods:
+    OSNEncry(String, String&): PrivateScope, Public, HideBySig
+    OSNDecry(String, String&): PrivateScope, Public, HideBySig
+Class OSNRpcCommonCfg.DatabaseInformation: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(OSNRpcCommonCfg.DATABASE_TYPE, Boolean, System.String, OSNRpcCommonCfg.OSNAccount, Boolean): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    Boolean IsHave : Public
+    OSNRpcCommonCfg.DATABASE_TYPE Type : Public
+    System.String volumeLabel : Public
+    OSNRpcCommonCfg.OSNAccount AdminAccount : Public
+    Boolean IsForceCDP : Public
+    System.String Instance : Public

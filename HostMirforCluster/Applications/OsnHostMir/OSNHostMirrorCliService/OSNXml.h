@@ -59,6 +59,7 @@ public:
 	DWORD LoadFile(wchar_t *pXML);
 	DWORD SaveFile(char *pNodeName);
 
+	DWORD AddXMLText(char *pNodeName,char *pTextValue);
 	DWORD AddXMLAttribute(char *pNodeName,char *pAttributeName,char *pAttributeValue);
 	DWORD AddXMLElement(char *pFatName,char *pSubName);
 	DWORD AddXMLVolElement(char *pFatName,char *pSubName,char *pDiskGuid);
